@@ -1,0 +1,14 @@
+Folder 1,Folder 2,File Name,Descr,Input Data Filenames,Output Data Filenames
+Coral,Endosymbiont_Physiology,chlorophyll_content_calculation,Clean chlorophyll content measurements,spec_plate_maps_2022_03_27; coral_surface_area; donor_colony_assignment; volume_blastate; endosymbiont_density; Raw Spectrophotometry files,chlorophyll_content_sanorm
+Coral,Endosymbiont_Physiology,endosymbiont_density_calculation,Clean endosymbiont density measurements,kerlin_sym_plateII_results_06242022.csv; kerlin_sym_plateII_results_06292022; volume_blastate; coral_surface_area; donor_colony_assignment,endosymbiont_density
+Coral,Metabolism,PI_curve,Calculate PI curve,"RawO2Files, pi_metadata; sample_sa_volume",Picurve_values; PI curve images
+Coral,Metabolism,CalculatePR_final,Calculate photosynthesis and respiration post-deployment,RawO2Files; PR_metadata_combined_2022,FinalRespo.R_2023_2_8; PR_final_normalized_2022_06_28
+Coral,Metabolism,CalculatePR_initial,Calculate photosynthesis and respiration pre-deployment,RawO2Files; PR_initial_metadata_combined_2022,PR_initial_normalized_2022_06_28
+Coral,Metabolism,PR_analysis_SA,Combine final and initial PR values,PR_final_normalized_2022_06_28; PR_initial_normalized_2022_06_28,PR_wider_2022_06_28
+Coral,Other_Coral_Measurements,surface_area_measurements,Calibrate weights to surface area and calculate measurements,surface_area_2022_03_20; calcs from Jamie and Sabrina calibration curves,coral_surface_area
+Site,,ct_temperature,Get temperatures from CT loggers at site,Full_CT_08112021; CTLoggerIDMetaData_Plates; CT_post08112021,CT_temp
+Site,,turb_nutrients,Clean turbinaria nitrogen content measurements,Turb_NC,turb_nutrients
+Site,,biogeochem_PR,Combine and clean biogeochemical data,site_biogeochemistry_qc; PR_wider_2022_06_28; turb_nutrients; T_temp_summ; endosymbiont_density; chlorophyll_content_sanorm,Biogeochem_clean; bgc_stats_2022_10_25; bgc_stats_wide_2022_10_25.csv; bgc_stats_scaled_2022_10_25data_wide_2022_10_25
+Scripts,,full_dfs,Combine dataframes to use in analysis scripts,data_wide_2022_10_25; bgc_stats_2022_10_25; bgc_stats_scaled_2022_10_25,coral_response; site_biogeochemistry_summstats.csv
+Scripts,,physiology_analysis_cc_cell,Analysis markdown normalizing CC to cell,,
+Scripts,,physiology_analysis,Min analysis- Analysis markdown normalizing CC to SA,,

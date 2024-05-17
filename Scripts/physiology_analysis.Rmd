@@ -1,0 +1,2224 @@
+---
+title: "Species interactions mediate the effects of submarine groundwater discharge
+on coral physiology"
+author: "Jamie Kerlin"
+date: '2022-05-31'
+output: 
+  html_document:
+   toc: TRUE
+   toc_float: TRUE
+   theme: cerulean
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, #we want to show our script, so keeping this TRUE
+                      message = FALSE, #hide messages and warnings
+                      warning = FALSE,  
+                      fig.path = "../Output/Physiology/") 
+
+
+```
+
+## Notes for this script
+- Add in CC/cell data here so all one script
+- Make sure PR code can run with what is currently in the folders
+
+
+
+## Purpose of this RMarkdown
+This RMarkdown is the analysis for "Ecological effects of submarine groundwater discharge and neighborhood interactions on common coral species, Porites rus", by J.R. Kerlin, D.M. Barnas, and N.J. Silbiger.
+
+## Load libraries
+```{r}
+library(tidyverse)
+library(here)
+library(purrr)
+library(broom)
+library(performance)
+library(factoextra)
+library(car)
+library(marginaleffects)
+library(sjPlot)
+library(margins)
+library(ggtext)
+library(lme4)
+library(lmerTest)
+library(broom.mixed)
+library(ggpubr)
+library(vtable)
+library(lmtest)
+library(patchwork)
+library(kableExtra)
+library(ggcorrplot)
+library(MuMIn)
+```
+
+## Notes on this analysis
+I have growth data and metabolism data ready from my experiment and water biogeochemistry data.
+80 fragments were deployed.
+72 fragments were recovered.
+59 fragments did not have any competitors missing- these were used in the analysis.
+
+There are 15 no competition treatments left.  
+There are 13 dead skeletal competition treatments left. 
+There are 16 conspecific treatments left.  
+There are 15 heterospecific treatments left.
+
+In this analysis, I am looking at 2 metabolism rates and 2 endosymbiont physiology values:  
+- gross photosynthesis & respiration  
+- endosymbiont density & chlorophyll a content  
+
+My experiment was deployed (8/3-8/17/2021).
+There seemed to be some outliers in the CT temp data, so I filtered out temps over 32C.
+12S was somehow lost in the freezer, so no endosymbiont physio data for this fragment.
+
+## Load data 
+```{r}
+
+# Coral physiological response variable data (with all recovered fragments)
+
+coral <- read_csv(here("Data",
+                       "Coral",
+                       "coral_response.csv")) %>%
+  filter(Response_measurement != "NP") #not analyzing net photosynthesis
+
+# Site biogeochemistry data
+
+bgc <- read_csv(here("Data",
+                     "Site",
+                     "site_biogeochemistry_summstats.csv"))
+
+# Here is information on the plate collection where I look at which fragments were missing
+fragments <- read_csv(here("Data",
+                           "Metadata",
+                           "Coral",
+                           "complete_treatments.csv"))
+
+depth <- read_csv(here("Data",
+                       "Site",
+                       "adj_plate_depth.csv")) %>%
+  filter(Location == "Varari" & CowTagID != "VSEEP") %>%
+  mutate(CowTagID = as.numeric(gsub("V", "", CowTagID)))
+
+
+#choosing colors for plots 
+
+colors <- c("#a45851", "#eba07e", "#b0cbe7", "#5d74a5")
+
+
+```
+
+## Data cleaning
+
+I'll clean up the data for which fragments were missing when I collected the plates.  
+
+This is removing all plates that were missing their center fragments (8 plates) and 
+those that were missing any competitors (13 more plates).  
+
+9 of the 20 locations have all their treatments.  
+14 of the 20 locations have at least 3/4 of their treatments.  
+16 of the 20 locations have at least 2/4 of their treatments.  
+4 of the 20 locations only have 1 of their treatments.
+
+There are 15 no competition treatments left.  
+There are 13 space competition treatments left (dead skeletal).  
+There are 16 conspecific treatments left.  
+There are 15 heterospecific treatments left.
+
+```{r}
+fragments1 <- fragments %>%
+  select(FragmentID, Missing_comp, Missing_central) %>%
+  filter(Missing_central == 0 & Missing_comp == 0)
+
+```
+
+I'll combine the coral response variable dataset with the SGD biogeochemistry dataset + the "fragments" df.
+We need one in long format and one in wide format for the following analyses.
+From this, I have a total of 59 fragments that are being analyzed, compared to the 72 fragments I would have analyzed if I did not remove the fragments that were missing competitors.
+
+```{r}
+data_long <- left_join(coral, bgc) %>%
+  right_join(fragments1)
+
+data_wide <- data_long %>%
+  select(!Predictor_scaled) %>%
+  pivot_wider(names_from = Predictor_measurement,
+              values_from = Predictor_value)
+```
+
+Biogeochem summ table
+
+```{r biogeochem_summ}
+biogeochem_table <- data_long %>%
+  select(CowTagID, Predictor_measurement, Predictor_value) %>%
+  unique() %>%
+  separate(Predictor_measurement, into = c("Measurement", "Parameter")) %>%
+  pivot_wider(names_from = "Measurement", values_from = "Predictor_value") %>%
+  rename(Minimum = min, Mean = mean, Maximum = max, Range = range) %>%
+  mutate(Parameter = case_when(Parameter == "Temperature" ~ "Temperature (°C)",
+                            Parameter =="NN" ~ "Nitrate + Nitrite (µmol L-1)",
+                            Parameter == "Phosphate" ~ "Phosphate (µmol L-1)",
+                            Parameter == "Salinity" ~ "Salinity (psu)",
+                            Parameter == "pH" ~ "pH")) 
+
+biogeochem_table_overall <- biogeochem_table %>%
+  group_by(Parameter) %>%
+  summarise(Minimum_min = round(min(Minimum), 2),
+            Minimum_max = round(max(Minimum), 2),
+            Mean_min = round(min(Mean), 2),
+            Mean_max = round(max(Mean), 2),
+            Maximum_min = round(min(Maximum), 2),
+            Maximum_max = round(max(Maximum), 2),) %>%
+  mutate(Range = round((Maximum_max - Minimum_min), 2)) %>%
+  select(Parameter, Minimum_min, Mean_min, Maximum_min, Minimum_max, Mean_max, Maximum_max, Range) %>%
+  kbl("html", col.names = c("Parameter",
+                    "Minimum", "Mean", "Maximum",
+                    "Minimum", "Mean", "Maximum", "Range")) %>%
+  kable_classic_2(full_width = F, html_font = "Cambria", "striped") %>%
+  column_spec(c(5, 6, 7), color = "white", background = "#a45851") %>%
+  column_spec(c(2, 3, 4), color = "white", background = "#5d74a5") %>%
+  add_header_above(c(" " = 1, "Low Range" = 3, "High Range" = 3, " " = 1))
+
+
+biogeochem_table_overall 
+
+
+# make each data frame and plot separately so can have different range scales
+
+biogeochem_nn <- biogeochem_table %>%
+  pivot_longer(cols = Minimum:Mean,
+               names_to = "Type",
+               values_to = "Value") %>%
+  filter(grepl("Nitrate", Parameter)) %>%
+  mutate(Value = round(Value, 2),
+         Range = round(Range, 2))
+
+biogeochem_pH <- biogeochem_table %>%
+  pivot_longer(cols = Minimum:Mean,
+               names_to = "Type",
+               values_to = "Value") %>%
+  filter(grepl("pH", Parameter)) %>%
+  mutate(Value = round(Value, 2),
+         Range = round(Range, 2))
+
+
+biogeochem_salinity <- biogeochem_table %>%
+  pivot_longer(cols = Minimum:Mean,
+               names_to = "Type",
+               values_to = "Value") %>%
+  filter(grepl("Salinity", Parameter)) %>%
+  mutate(Value = round(Value, 2),
+         Range = round(Range, 2))
+
+
+biogeochem_temp <- biogeochem_table %>%
+  pivot_longer(cols = Minimum:Mean,
+               names_to = "Type",
+               values_to = "Value") %>%
+  filter(grepl("Temperature", Parameter)) %>%
+  mutate(Value = round(Value, 2),
+         Range = round(Range, 2))
+
+
+biogeochem_phos <- biogeochem_table %>%
+  pivot_longer(cols = Minimum:Mean,
+               names_to = "Type",
+               values_to = "Value") %>%
+  filter(grepl("Phosphate", Parameter))%>%
+  mutate(Value = round(Value, 2),
+         Range = round(Range, 2))
+
+
+#plots
+
+sal <- ggplot(biogeochem_salinity, mapping = aes(x = Type, y = Value)) +
+geom_boxplot(outlier.shape = NA) +
+  facet_wrap(~Parameter, scales = "free") +
+  geom_jitter(aes(color = Range), width = 0.15) +
+  scale_x_discrete(limits = c("Minimum", "Mean", "Maximum")) +
+  theme_bw() +
+  labs(x = "", y = "") +
+  theme(axis.text = element_text(size = 12),
+        strip.text = element_text(size = 12))
+
+sal %>% ggsave(filename = here("Output", "Biogeochem_plots", "sal.png"), 
+              width  = 4, height = 4)
+
+
+pH <- ggplot(biogeochem_pH, mapping = aes(x = Type, y = Value)) +
+  geom_boxplot(outlier.shape = NA) +
+  facet_wrap(~Parameter, scales = "free") +
+  geom_jitter(aes(color = Range), width = 0.15) +
+  scale_x_discrete(limits = c("Minimum", "Mean", "Maximum")) +
+  theme_bw() +
+  labs(x = "", y = "")+
+  theme(axis.text = element_text(size = 12),
+        strip.text = element_text(size = 12))
+
+pH %>% ggsave(filename = here("Output", "Biogeochem_plots", "pH.png"), 
+              width  = 4, height = 4)
+
+
+nn <- ggplot(biogeochem_nn, mapping = aes(x = Type, y = Value)) +
+  geom_boxplot(outlier.shape = NA) +
+  facet_wrap(~Parameter, scales = "free") +
+  geom_jitter(aes(color = Range), width = 0.15) +
+  scale_x_discrete(limits = c("Minimum", "Mean", "Maximum")) +
+  theme_bw() +
+  labs(x = "", y = "")+
+  theme(axis.text = element_text(size = 12),
+        strip.text = element_text(size = 12))
+
+nn %>% ggsave(filename = here("Output", "Biogeochem_plots", "nn.png"), 
+              width  = 4, height = 4)
+
+
+
+temp <- ggplot(biogeochem_temp, mapping = aes(x = Type, y = Value)) +
+  geom_boxplot(outlier.shape = NA) +
+  facet_wrap(~Parameter, scales = "free") +
+  geom_jitter(aes(color = Range), width = 0.15) +
+  scale_x_discrete(limits = c("Minimum", "Mean", "Maximum")) +
+  theme_bw() +
+  labs(x = "", y = "") +
+  theme(axis.text = element_text(size = 12),
+        strip.text = element_text(size = 12))
+
+temp %>% ggsave(filename = here("Output", "Biogeochem_plots", "temp.png"), 
+              width  = 4, height = 4)
+
+
+phos <- ggplot(biogeochem_phos, mapping = aes(x = Type, y = Value)) +
+  geom_boxplot(outlier.shape = NA) +
+  facet_wrap(~Parameter, scales = "free") +
+  geom_jitter(aes(color = Range), width = 0.15) +
+  scale_x_discrete(limits = c("Minimum", "Mean", "Maximum")) +
+  theme_bw() +
+  labs(x = "", y = "") +
+  scale_color_continuous(breaks = c(0.02, 0.04, 0.06, 0.08, .10)) +
+  theme(axis.text = element_text(size = 12),
+        strip.text = element_text(size = 12))
+
+phos %>% ggsave(filename = here("Output", "Biogeochem_plots", "phos.png"), 
+              width  = 4, height = 4)
+
+
+
+
+```
+
+
+Look for outliers
+
+```{r}
+ggplot(data_wide, mapping = aes(x = Response_measurement, y = Final)) +
+  geom_boxplot() 
+
+# 14m and 14h look like potential outliers in boxplot for R, but are not outliers in the model, so leaving in
+# the outlier for ED and CC are the same (7h), could be fragment with high ED has more CC/cm2
+
+```
+
+
+Next, I'll create separate dataframes for each response variable.
+
+```{r}
+# Dataframes with observations for all neighbor treatments
+
+GP_plot <- data_wide %>%
+  filter(Response_measurement == "GP") 
+
+R_plot <- data_wide %>%
+  filter(Response_measurement == "R")
+
+ED_plot <- data_wide %>%
+  filter(Response_measurement == "ED")
+
+CC_plot <- data_wide %>%
+  filter(Response_measurement == "CCcm2")
+
+# Dataframes with observations for only no neighbor treatment (wide format)
+
+GP_plot_control <- GP_plot %>%
+  filter(Treatment == "No_neighbor")
+
+R_plot_control <- R_plot %>%
+  filter(Treatment == "No_neighbor")
+
+ED_plot_control <- ED_plot %>%
+  filter(Treatment == "No_neighbor")
+  
+CC_plot_control <- CC_plot %>%
+  filter(Treatment == "No_neighbor")
+
+# Dataframes with observations for only no neighbor treatment (long format)
+
+GP_long_control <- data_long %>%
+  filter(Response_measurement == "GP") %>%
+  filter(Treatment == "No_neighbor")
+
+R_long_control <- data_long %>%
+  filter(Response_measurement == "R") %>%
+  filter(Treatment == "No_neighbor")
+
+ED_long_control <- data_long %>%
+  filter(Response_measurement == "ED") %>%
+  filter(Treatment == "No_neighbor")
+
+CC_long_control <- data_long %>%
+  filter(Response_measurement == "CCcm2") %>%
+  filter(Treatment == "No_neighbor")
+
+```
+
+# Look at correlations between initial and final response values 
+
+We want to see if there is a significant correlation with the initial and final values for each response.
+If there is a significant correlation, will keep it in the model.
+If there is not a significant correlation, will take it out of the model.
+Non-significance here shows us that environment has more effect on responses than original values.
+
+```{r initial_final_corr}
+
+# ed_if <- data_wide %>%
+#   filter(Response_measurement == "ED")
+# ed_if_m <- lm(Final ~ Initial, data = ed_if)
+# anova(ed_if_m)
+
+ggplot(data_wide, mapping = aes(x = Initial, y = Final)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  facet_wrap(~Response_measurement, scales = "free") +
+  theme_bw()
+
+initial_final <- data_wide %>%
+ungroup() %>% # ungroup the data
+  nest(data = -c(Response_measurement)) %>% # nest all the data measurement type
+  mutate(fit = map(data, ~lm(Final~ Initial, data = .))) #create models
+initial_final
+
+intial_final <- initial_final$fit # shows you each of the models
+
+results_initial_final <- initial_final %>%
+  mutate(coeff = map(fit,anova)) %>% # R2 and others 
+  select(Response_measurement, coeff) %>% # only keep the results
+  unnest() %>%
+  mutate(df = case_when(Df == 56 ~ 56, Df == 57 ~ 57)) 
+
+df <- results_initial_final %>%
+  filter(!is.na(df)) %>%
+  select(Response_measurement, df)
+
+df2 <- results_initial_final %>%
+  filter(is.na(df)) %>%
+  select(!df) %>%
+  left_join(df) %>%
+  unite("Df", c(Df, df), sep = ", ") %>%
+  rename(sum.sq = `Sum Sq`, mean.sq = `Mean Sq`, `F` = `F value`, p = `Pr(>F)`) %>%
+  mutate(sum.sq = round(sum.sq, 2),
+        mean.sq = round(mean.sq,2),
+         `F` = round(`F`, 2),
+         p = round(p, 3)) %>%
+  mutate(across(Response_measurement, factor, levels = c("CCcm2", "ED", "GP", "R"),
+                labels = c("Chlorophyll Content (cm-2)", "Endosymbiont Density", 
+                           "Gross Photosynthesis", "Respiration"))) %>%
+  mutate(Significance = case_when(p > 0.05 ~ "",
+                                  p < 0.05 & p > 0.01 ~ "*",
+                                  p < 0.01 & p > 0.001 ~ "**",
+                                  p < 0.001 ~ "***"))
+
+results_initial_final
+
+initial_final_table <- df2 %>%
+  kbl("html", col.names = c("Response Measurement", "Df",
+                    "Sum-squared", "Mean-squared", "F-statistic",
+                    "P-value", "")) %>%
+  kable_classic_2(full_width = F, html_font = "Cambria", "striped")
+
+initial_final_table
+
+
+# initial_final_table %>%
+#   kableExtra::save_kable(file = "table_initialfinal.html", self_contained = T)
+
+test <- data_wide %>%
+  filter(Response_measurement == "CCcm2")
+
+summary(lm(Final ~ Initial, data = test))
+
+#only chlorophyll content is significant
+```
+
+# Sum tables 
+
+```{r summ_table}
+response_tabledata <- data_wide %>%
+  select(Response_measurement, Initial, Final) %>%
+  mutate(Response_measurement = case_when(Response_measurement == "ED" ~ "Endosybmiont Density",
+                                   Response_measurement == "CCcm2" ~ "Chlorophyll content",
+                                   Response_measurement == "GP" ~ "Gross Photosynthesis",
+                                   Response_measurement == "R" ~ "Respiration"))
+
+sumtable(response_tabledata, group = "Response_measurement", group.long = TRUE)
+```
+
+# Significant IV parameters relationships
+
+```{r}
+test <- data_wide %>%
+  select(CowTagID, contains("NN_umolL"), contains("pH"), contains("salinity"), contains("temp")) %>%
+  unique()
+
+ggplot(test, mapping = aes(range_pH, min_pH)) +
+  geom_point()
+
+corr1 <- cor.test(test$range_pH, test$min_pH, method = "pearson")
+corr1 #significantly correlated
+
+ggplot(test, mapping = aes(min_pH, min_NN_umolL)) +
+  geom_point()
+
+corr2 <- cor.test(test$range_pH, test$min_NN_umolL, method = "pearson")
+corr2 # not significantly correlated
+
+ggplot(test, mapping = aes(mean_NN_umolL, mean_Salinity)) +
+  geom_point()
+
+corr3 <- cor.test(test$mean_NN_umolL, test$mean_Salinity, method = "pearson")
+corr3 # significantly negatively correlated
+
+
+# corr_matrix_data <- test %>%
+#   select(!CowTagID) %>%
+#   rename(`Minimum Nitrate + Nitrite` = min_NN_umolL,
+#          `Maximum Nitrate + Nitrite` = max_NN_umolL,
+#          `Mean Nitrate + Nitrite` = mean_NN_umolL,
+#          `Range Nitrate + Nitrite` = range_NN_umolL,
+#          `Minimum Phosphate` = min_Phosphate_umolL,
+#          `Maximum Phosphate` = max_Phosphate_umolL,
+#          `Mean Phosphate` = mean_Phosphate_umolL,
+#          `Range Phosphate` = range_Phosphate_umolL,
+#          `Minimum pH` = min_pH,
+#          `Maximum pH` = max_pH,
+#          `Mean pH` = mean_pH,
+#          `Range pH` = range_pH,
+#          `Minimum Temperature` = min_Temperature_C,
+#          `Maximum Temperature` = max_Temperature_C,
+#          `Mean Temperature` = mean_Temperature_C,
+#          `Range Temperature` = range_Temperature_C,
+#          `Minimum Salinity` = min_Salinity,
+#          `Maximum Salinity` = max_Salinity,
+#          `Mean Salinity` = mean_Salinity,
+#          `Range Salinity` = range_Salinity)
+# 
+# corr <- round(cor(corr_matrix_data), 1)
+# 
+# p.mat <- cor_pmat(round(corr, 1))
+# 
+# corr_plot <- ggcorrplot(corr, method = "circle")
+# 
+# corr_plot %>% ggsave(filename = here("Output", "corrplot.png"),
+#                      height = 12, width = 12)
+
+
+# 
+# test2 <- data_wide %>%
+#   select(CowTagID, Treatment, Response_measurement, Initial, Final) %>%
+#   filter(Treatment == "No_neighbor") %>%
+#   filter(Response_measurement == "ED" | Response_measurement == "CCcm2") %>%
+#   pivot_wider(names_from = Response_measurement, 
+#               values_from = c(Initial, Final)) %>%
+#   mutate(percent_change_ED = (Final_ED-Initial_ED)/Initial_ED * 100, 
+#          percent_change_CCcm2 = (Final_CCcm2-Initial_CCcm2)/Initial_CCcm2 * 100) %>%
+#   filter(percent_change_ED < 50)
+# 
+# 
+# ggplot(test2, mapping = aes(x = Final_ED, y = Final_CCcm2)) +
+#   geom_point()
+# 
+# corr <- cor(test2$Final_ED, test2$Final_CCcm2, method = "pearson")
+# 
+# 
+# test3 <- data_wide %>%
+#   select(CowTagID, Treatment, Response_measurement, Initial, Final) %>%
+#   filter(Treatment == "No_neighbor") %>%
+#   filter(Response_measurement == "ED" | Response_measurement == "GP") %>%
+#   pivot_wider(names_from = Response_measurement, 
+#               values_from = c(Initial, Final))
+# 
+# 
+# ggplot(test3, mapping = aes(x = Final_ED, y = Final_GP, color = Treatment)) +
+#   geom_point() +
+#   facet_wrap(~Treatment)
+# 
+# corr <- cor(test3$Final_ED, test3$Final_GP, method = "pearson")
+# summary(quicktest <- lm(Final_GP ~ Final_ED, data = test3))
+```
+
+Plate Depth test
+- Just want to look really quickly at depth of CTs to estimate relative difference between
+plate depths to see if maybe responses change with depth (and corresponding)
+```{r}
+depth <- read_csv(here("Data",
+                       "Site",
+                       "adj_plate_depth.csv")) %>%
+  filter(Location == "Varari" & CowTagID != "VSEEP") %>%
+  mutate(CowTagID = as.numeric(gsub("V", "", CowTagID)),
+         aprx_plate_depth_cm = adj_CT_depth_cm - 15) 
+
+combine <- left_join(data_wide, depth) %>%
+  select(CowTagID, Response_measurement, Final, Treatment, adj_CT_depth_cm) %>%
+  filter(Treatment == "No_neighbor") %>%
+  unique()
+
+ggplot(combine, mapping = aes(x = adj_CT_depth_cm, y = Final)) +
+  geom_point() + 
+  facet_wrap(~Response_measurement)
+
+```
+
+
+# Final Gross Photosynthesis
+
+## Model selection no neighbor only
+
+```{r}
+
+gp_nn_ms <- GP_long_control %>%
+ungroup() %>% # ungroup the data
+  nest(data = -c(Response_measurement, Predictor_measurement)) %>% # nest all the data measurement type
+  mutate(fit = map(data, ~lm(Final~ Predictor_scaled, data = .))) #create models
+gp_nn_ms
+
+gp_nn_models <- gp_nn_ms$fit # shows you each of the models
+
+gp_nn_results <- gp_nn_ms %>%
+  mutate(coeff = map(fit, tidy),
+         aic =  map(fit, glance)) %>% # R2 and others 
+  select(Predictor_measurement, coeff, aic) %>% # only keep the results
+  unnest() %>%
+  write_csv(here("Output", "Coefficients", "gp_coefficients.csv"))
+
+gp_nn_results_cleannames <- gp_nn_results %>%
+  mutate(Predictor = dplyr::recode(Predictor_measurement, 
+                            "max_pH" = "Max pH",
+                            "max_Salinity" = "Max Salinity",
+                            "max_Temperature_C" = "Max Temperature",
+                            "max_NN_umolL" = "Max Nitrite + Nitrate",
+                            "max_Phosphate_umolL" = "Max Phosphate",
+                            "min_pH" = "Min pH",
+                            "min_Salinity" = "Min Salinity",
+                            "min_Temperature_C" = "Min Temperature",
+                            "min_NN_umolL" = "Min Nitrite + Nitrate",
+                            "min_Phosphate_umolL" = "Min Phosphate",
+                            "range_pH" = "pH Range",
+                            "range_Salinity" = "Salinity Range",
+                            "range_Temperature_C" = "Temperature Range",
+                            "range_NN_umolL" = "Nitrate + Nitrate Range",
+                            "range_Phosphate_umolL" = "Phosphate Range",
+                            "mean_pH" = "Mean pH",
+                            "mean_Salinity" = "Mean Salinity",
+                            "mean_Temperature_C" = "Mean Temperature",
+                            "mean_NN_umolL" = "Mean Nitrite + Nitrate",
+                            "mean_Phosphate_umolL" = "Mean Phosphate")) %>%
+  mutate(delAIC = AIC - min(AIC)) %>%
+  arrange(delAIC)
+  
+
+```
+
+#### coefficient plot only NN
+
+
+```{r coeffplot_gp}
+
+gp_nn_results_cleannames1 <- gp_nn_results_cleannames %>%
+  filter(term == "Predictor_scaled") %>%
+  mutate(low = estimate - std.error * 1.96, high = estimate + std.error*1.96) %>%
+  mutate(alphasig = if_else(p.value <= 0.05, 1, 0))
+  
+
+coeff_gp_nn <- ggplot(data = gp_nn_results_cleannames1,
+                mapping = aes(x = estimate,
+                              y = reorder(Predictor, estimate), alpha = alphasig)) +
+  theme_classic() +
+  geom_vline(xintercept = 0, lty = 2) +
+  geom_point() +
+  geom_errorbar(mapping = aes(xmax = high, xmin= low), width=0.1) +
+  theme(legend.position = "none") +
+  labs(y = "Scaled predictor measurements", x = "Coefficient") +
+  theme(axis.text = element_text(size = 12),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 12),
+        strip.text = element_text(size = 10),
+        axis.title.x = element_markdown(size = 14),
+        axis.title.y = element_markdown(size = 14))
+coeff_gp_nn
+```
+
+#### aic plot NN only
+
+```{r aicplot_gp}
+gp_aic_plot_data <- gp_nn_results_cleannames %>%
+  select(Predictor, delAIC) %>%
+  unique() %>%
+  filter(delAIC < 3.7) 
+
+gp_aic_plot <- gp_aic_plot_data %>%
+ggplot(mapping = aes(x = reorder(Predictor, -delAIC), y = delAIC)) +
+  geom_col() +
+  coord_flip() +
+  theme_classic() +
+  geom_hline(yintercept = 2, lty = 2) +
+  labs(x = "", y = "Delta AIC") +
+  theme(axis.text = element_text(size = 12),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 12),
+        strip.text = element_text(size = 10),
+        axis.title.x = element_markdown(size = 14),
+        axis.title.y = element_markdown(size = 14)) +
+  scale_x_discrete(labels = rev(c("pH Range", "Minimum pH", "Mean pH")))
+
+gp_aic_plot
+
+```
+
+
+## Regressions of top model (minpH)
+
+```{r regression_gp}
+
+GP_plot1 <- GP_plot  
+
+GP_plot1$Treatment <- factor(GP_plot1$Treatment,
+                                 levels = c("No_neighbor", "Dead_skeletal", "Conspecific", "Heterospecific"),
+                                 labels = c("No Neighbor", "Dead Skeletal", "Conspecific", "Heterospecific"))
+
+
+gp_plot_control1 <- ggplot(GP_plot_control, mapping = aes(x = range_pH, y = Final)) +
+  geom_point(alpha = 0.7, size = 3, color = "#a45851") +
+  geom_smooth(method = "lm", color = "#556385") +
+  theme_bw() + 
+  scale_color_manual(values = colors) +
+  theme(axis.text = element_text(size = 14),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 12),
+        strip.text = element_text(size = 10),
+        axis.title.x = element_markdown(size = 18),
+        axis.title.y = element_markdown(size = 14)) +
+  labs(x = "Range pH", y = "Final Photosynthesis (µmol O<sub>2</sub> cm<sup>-2</sup> hr<sup>-1</sup>)")
+
+gp_plot_control1
+
+gp_plot_control2 <- ggplot(GP_plot_control, mapping = aes(x = range_pH, y = Final)) +
+  geom_point(GP_plot1, mapping = aes(x = range_pH, y = Final, color = Treatment), alpha = 0.7, size = 3) +
+  geom_smooth(method = "lm", color = "#556385") +
+  theme_bw() + 
+  scale_color_manual(values = colors) +
+  theme(axis.text = element_text(size = 14),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 12),
+        strip.text = element_text(size = 10),
+        axis.title.x = element_markdown(size = 18),
+        axis.title.y = element_markdown(size = 14)) +
+  labs(x = "Range pH", y = "Final Photosynthesis (µmol O<sub>2</sub> cm<sup>-2</sup> hr<sup>-1</sup>)")
+
+gp_plot_control2
+```
+
+
+## Create top model (range pH)
+
+```{r residual_gp}
+
+#create first model for only the no neighbor treatment
+control_gp_m <- lm(Final ~ Initial + range_pH, data = GP_plot_control)
+control_gp_m2 <- lm(Final ~ range_pH, data = GP_plot_control) #best model
+
+summary(control_gp_m)
+glance(control_gp_m)
+summary(control_gp_m2)
+glance(control_gp_m2)
+
+AIC(control_gp_m, control_gp_m2)
+
+summary(test <- lm(Final ~ Initial, data = GP_plot))
+
+exp_summ_gp <- tidy(control_gp_m2) %>% #use tidy to get the slopes and intercept
+  select(term, estimate) #select only rows needed here
+
+#save slopes and intercepts
+
+a_gp <- as.numeric(exp_summ_gp %>% filter(term == "range_pH") %>% select(estimate)) #slope of range pH
+c_gp <- as.numeric(exp_summ_gp %>% filter(term == "(Intercept)") %>% select(estimate)) #intercept
+
+
+#calculate expected and residuals
+GP_plot_pred <- GP_plot %>%
+  mutate(predict = (a_gp*range_pH) + c_gp, #calculate expected value
+         resid = Final - predict) %>% #calculate residuals (obs - exp)
+  group_by(Treatment) %>% #group by treatment 
+  mutate(meanresid = mean(resid)) 
+
+#create residual model to look at differences between treatments
+# cowtagID as a random effect. -1 gives us results without intercept
+comp_gp_m <- lmer(resid ~ Treatment -1 + (1|CowTagID), data = GP_plot_pred)
+summary(comp_gp_m)
+anova(comp_gp_m)
+
+tidy_gp <- tidy(comp_gp_m) %>%
+  mutate("Treatment" = term) %>%
+  filter(effect == "fixed") %>%
+  select(!group) %>%
+  mutate(high = estimate + std.error, low = estimate - std.error,
+         sig = case_when(p.value <= 0.05 ~ 1,
+                           TRUE ~ 0))
+
+tidy_gp$Treatment <- factor(tidy_gp$Treatment, levels = c("TreatmentNo_neighbor", "TreatmentDead_skeletal", "TreatmentConspecific", "TreatmentHeterospecific"),
+                           labels = c("No_neighbor", "Dead_skeletal", "Conspecific", "Heterospecific")) 
+
+tidy_gp1 <- left_join(GP_plot_pred, tidy_gp)
+  
+  
+tidy_gp1$Treatment <- factor(tidy_gp1$Treatment,
+                                 levels = c("No_neighbor", "Dead_skeletal", "Conspecific", "Heterospecific"),
+                                 labels = c("No Neighbor", "Dead Skeletal", "Conspecific", "Heterospecific"))
+
+label.df <- data.frame(Treatment = c("Conspecific"),
+                       estimate = c(0.7))
+
+#make ggplot to show residuals of treatments
+
+gp_plot_resid <- ggplot(tidy_gp1, mapping = aes(x = Treatment, y = estimate)) +
+  geom_point(size = 3) +
+  geom_jitter(mapping = aes(x = Treatment, y = resid, color = Treatment), size =2,  alpha = 0.7, width = 0.1) +
+  geom_errorbar(mapping = aes(ymax = high, ymin= low), width=0.1) +
+  labs(y = "Photosynthesis observed-expected (µmol O<sub>2</sub> cm<sup>-2</sup> hr<sup>-1</sup>)", x = "Neighbor Treatment") +
+  theme_bw() +
+  scale_color_manual(values = colors) +
+  geom_hline(yintercept = 0, lty = 2) +
+  theme(axis.text = element_text(size = 12),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 12),
+        strip.text = element_text(size = 12),
+        axis.title.x = element_markdown(size = 14),
+        axis.title.y = element_markdown(size = 10)) +
+  geom_text(data = label.df, label = "*", size = 10)
+
+gp_plot_resid
+
+
+
+### now do it with no neighbor as the intercept so that we are directly comparing in the table
+#calculate expected and residuals
+GP_plot_pred_table <- GP_plot %>%
+  mutate(predict = (a_gp*range_pH) + c_gp, #calculate expected value
+         resid = Final - predict) %>% #calculate residuals (obs - exp)
+    mutate(across(Treatment, factor, levels = c("No_neighbor", "Dead_skeletal", "Conspecific", "Heterospecific"),
+                  labels = c("aNo_neighbor", "Dead_skeletal", "Conspecific", "Heterospecific"))) %>% 
+  group_by(Treatment) %>% #group by treatment 
+  mutate(meanresid = mean(resid)) 
+
+#create residual model to look at differences between treatments
+# cowtagID as a random effect. -1 gives us results without intercept
+comp_gp_m_table <- lmer(resid ~ Treatment + (1|CowTagID), data = GP_plot_pred_table)
+summary(comp_gp_m_table)
+anova(comp_gp_m_table)
+
+```
+
+## Check model assumptions
+
+```{r checkmodel_gp}
+check_model(control_gp_m2)
+check_model(comp_gp_m) # 3c is outlier
+shapiro.test(GP_plot_control$Final)
+bartlett.test(Final ~ Treatment, data = GP_plot)
+
+qqp(residuals(control_gp_m), "norm")
+qqp(residuals(comp_gp_m), "norm") 
+
+lmtest::bptest(control_gp_m2)
+
+
+```
+
+# Final Respiration
+
+## Model selection no neighbor only 
+
+```{r}
+
+r_nn_m <- R_long_control %>%
+ungroup() %>% # ungroup the data
+  nest(data = -c(Response_measurement, Predictor_measurement)) %>% # nest all the data measurement type
+  mutate(fit = map(data, ~lm(Final ~ Predictor_scaled, data = .))) #create models
+r_nn_m
+
+results_r_nn <- r_nn_m %>%
+  mutate(coeff = map(fit, tidy),
+         aic = map(fit, glance)) %>% # R2 and others 
+  select(Predictor_measurement, coeff, aic) %>% # only keep the results
+  unnest() %>%
+  write_csv(here("Output", "Coefficients", "r_coefficients.csv"))
+
+results_r_nn_cleannames <- results_r_nn %>%
+  mutate(Predictor = dplyr::recode(Predictor_measurement, 
+                            "max_pH" = "Max pH",
+                            "max_Salinity" = "Max Salinity",
+                            "max_Temperature_C" = "Max Temperature",
+                            "max_NN_umolL" = "Max Nitrite + Nitrate",
+                            "max_Phosphate_umolL" = "Max Phosphate",
+                            "min_pH" = "Min pH",
+                            "min_Salinity" = "Min Salinity",
+                            "min_Temperature_C" = "Min Temperature",
+                            "min_NN_umolL" = "Min Nitrite + Nitrate",
+                            "min_Phosphate_umolL" = "Min Phosphate",
+                            "range_pH" = "pH Range",
+                            "range_Salinity" = "Salinity Range",
+                            "range_Temperature_C" = "Temperature Range",
+                            "range_Phosphate_umolL" = "Phosphate Range",
+                            "range_NN_umolL" = "Nitrate + Nitrate Range",
+                            "mean_pH" = "Mean pH",
+                            "mean_Salinity" = "Mean Salinity",
+                            "mean_Temperature_C" = "Mean Temperature",
+                            "mean_NN_umolL" = "Mean Nitrite + Nitrate",
+                            "mean_Phosphate_umolL" = "Mean Phosphate")) %>%
+  mutate(delAIC = AIC - min(AIC)) %>%
+  arrange(delAIC)
+```
+
+
+### coefficient plot for NN only
+
+```{r coeffplot_r}
+results_r_nn_cleannames1 <- results_r_nn_cleannames %>%
+  filter(term == "Predictor_scaled") %>%
+  mutate(low = estimate - std.error * qnorm(.975), high = estimate + std.error*qnorm(.975))  %>%
+  mutate(alpha = if_else(p.value <= 0.05, 1, 0))
+
+coeff_r_nn <- ggplot(data = results_r_nn_cleannames1,
+                mapping = aes(x = estimate,
+                              y = reorder(Predictor, estimate), alpha = alpha)) +
+  theme_classic() +
+  geom_vline(xintercept = 0, lty = 2) +
+  geom_point() +
+  geom_errorbar(mapping = aes(xmax = high, xmin= low), width=0.1) +
+  theme(legend.position = "none") +
+  labs(y = "Scaled predictor measurements", x = "Coefficient") +
+    theme(axis.text = element_text(size = 14),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 12),
+        strip.text = element_text(size = 12),
+        axis.title.x = element_markdown(size = 14),
+        axis.title.y = element_markdown(size = 14))
+coeff_r_nn
+```
+
+
+### aic plot NN only
+
+```{r aic_r}
+r_aic_plot_data <- results_r_nn_cleannames %>%
+  select(Predictor, delAIC) %>%
+  unique() %>%
+  filter(delAIC < 7.2) 
+
+r_aic_plot <- r_aic_plot_data %>%
+ggplot(mapping = aes(x = reorder(Predictor, -delAIC), y = delAIC)) +
+  geom_col() +
+  coord_flip() +
+  theme_classic() +
+  geom_hline(yintercept = 2, lty = 2) +
+  labs(x = "", y = "Delta AIC") +
+    theme(axis.text = element_text(size = 14),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 12),
+        strip.text = element_text(size = 12),
+        axis.title.x = element_markdown(size = 14),
+        axis.title.y = element_markdown(size = 14)) +
+  scale_x_discrete(labels = rev(c("pH Range", "Maximum pH", "Minimum pH")))
+
+r_aic_plot
+
+```
+
+
+
+## Regressions for top model (range pH)
+
+```{r  regression_r}
+
+R_plot1 <- R_plot
+
+R_plot1$Treatment <- factor(R_plot1$Treatment,
+                                 levels = c("No_neighbor", "Dead_skeletal", "Conspecific", "Heterospecific"),
+                                 labels = c("No Neighbor", "Dead Skeletal", "Conspecific", "Heterospecific"))
+
+
+r_plot_control1 <- ggplot(R_plot_control, mapping = aes(x = range_pH, y = Final)) +
+  geom_point(alpha = 0.7, size = 3, color = "#a45851") +
+  geom_smooth(method = "lm", color = "#556385") +
+  theme_bw() + 
+  scale_color_manual(values = colors) +
+  theme(axis.text = element_text(size = 14),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 12),
+        strip.text = element_text(size = 10),
+        axis.title.x = element_markdown(size = 18),
+        axis.title.y = element_markdown(size = 14)) +
+  labs(x = "Range of pH", y = "Final Respiration (µmol O<sub>2</sub> cm<sup>-2</sup> hr<sup>-1</sup>)")
+
+r_plot_control1
+
+r_plot_control2 <- ggplot(R_plot_control, mapping = aes(x = range_pH, y = Final)) +
+  geom_point(R_plot1, mapping = aes(x = range_pH, y = Final, color = Treatment), alpha = 0.7, size = 3) +
+  geom_smooth(method = "lm", color = "#556385") +
+  theme_bw() + 
+  scale_color_manual(values = colors) +
+  theme(axis.text = element_text(size = 14),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 12),
+        strip.text = element_text(size = 10),
+        axis.title.x = element_markdown(size = 18),
+        axis.title.y = element_markdown(size = 14))+
+  labs(x = "Range of pH", y = "Final Respiration (µmol O<sub>2</sub> cm<sup>-2</sup> hr<sup>-1</sup>)")
+
+r_plot_control2
+```
+
+## Run top model (range pH)
+
+
+```{r residual_r}
+#create first model for only the no neighbor treatment
+control_r_m <- lm(Final ~ Initial + range_pH, data = R_plot_control)
+control_r_m2 <- lm(Final ~ range_pH, data = R_plot_control)
+
+
+summary(control_r_m)
+glance(control_r_m)
+summary(control_r_m2)
+glance(control_r_m2)
+
+AIC(control_r_m, control_r_m2)
+#second model is best, but AIC diff is not > 2 
+
+exp_summ_r <- tidy(control_r_m2) %>% #use tidy to get the slopes and intercept
+  select(term, estimate) #select only rows needed here
+
+#save slopes and intercepts
+
+a_r <- as.numeric(exp_summ_r %>% filter(term == "range_pH") %>% select(estimate)) #slope of range pH
+c_r <- as.numeric(exp_summ_r %>% filter(term == "(Intercept)") %>% select(estimate)) #intercept
+
+
+#calculate expected and residuals
+R_plot_pred <- R_plot %>%
+  mutate(predict = (a_r*range_pH) + c_r, #calculate expected value
+         resid = Final - predict) %>% #calculate residuals (obs - exp)
+  group_by(Treatment) %>% #group by treatment 
+  mutate(meanresid = mean(resid)) #find mean of the residuals
+
+
+#create residual model to look at differences between treatments
+# cowtagID as a random effect. -1 gives us results without intercept
+comp_r_m <- lmer(resid ~ Treatment -1 + (1|CowTagID), data = R_plot_pred)
+summary(comp_r_m)
+anova(comp_r_m)
+
+tidy_r <- tidy(comp_r_m) %>%
+  mutate("Treatment" = term) %>%
+  filter(effect == "fixed") %>%
+  select(!group) %>%
+  mutate(high = estimate + std.error, low = estimate - std.error,
+         sig = case_when(p.value <= 0.05 ~ 1,
+                         TRUE ~ 0))
+
+tidy_r$Treatment <- factor(tidy_r$Treatment, levels = c("TreatmentNo_neighbor", "TreatmentDead_skeletal", "TreatmentConspecific", "TreatmentHeterospecific"),
+                           labels = c("No_neighbor", "Dead_skeletal", "Conspecific", "Heterospecific")) 
+
+tidy_r1 <- left_join(R_plot_pred, tidy_r)
+  
+  
+tidy_r1$Treatment <- factor(tidy_r1$Treatment,
+                                 levels = c("No_neighbor", "Dead_skeletal", "Conspecific", "Heterospecific"),
+                                 labels = c("No Neighbor", "Dead Skeletal", "Conspecific", "Heterospecific"))
+
+label.dfr <- data.frame(Treatment = c("Conspecific"),
+                       estimate = c(0.45))
+#make ggplot to show residuals of treatments
+
+r_plot_resid <- ggplot(tidy_r1, mapping = aes(x = Treatment, y = estimate)) +
+  geom_point(size = 3) +
+  geom_jitter(mapping = aes(x = Treatment, y = resid, color = Treatment), size =2,  alpha = 0.7, width = 0.1) +
+  geom_errorbar(mapping = aes(ymax = high, ymin= low), width=0.1) +
+  labs(y = "Respiration observed-expected (µmol O<sub>2</sub> cm<sup>-2</sup> hr<sup>-1</sup>)",
+                  x = "Neighbor Treatment") +
+  theme_bw() +
+  scale_color_manual(values = colors) +
+  geom_hline(yintercept = 0, lty = 2) +
+  theme(axis.text = element_text(size = 12),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 12),
+        strip.text = element_text(size = 12),
+        axis.title.x = element_markdown(size = 14),
+        axis.title.y = element_markdown(size = 10)) +
+  geom_text(data = label.dfr, label = "*", size = 10)
+
+r_plot_resid
+
+
+### now do it with no neighbor as the intercept so that we are directly comparing in the table
+#calculate expected and residuals
+
+R_plot_pred_table <- R_plot %>%
+  mutate(predict = (a_r*range_pH) + c_r, #calculate expected value
+         resid = Final - predict) %>% #calculate residuals (obs - exp)
+    mutate(across(Treatment, factor, levels = c("No_neighbor", "Dead_skeletal", "Conspecific", "Heterospecific"),
+                  labels = c("aNo_neighbor", "Dead_skeletal", "Conspecific", "Heterospecific"))) %>% 
+  group_by(Treatment) %>% #group by treatment 
+  mutate(meanresid = mean(resid)) 
+
+#create residual model to look at differences between treatments
+# cowtagID as a random effect. -1 gives us results without intercept
+comp_r_m_table <- lmer(resid ~ Treatment + (1|CowTagID), data = R_plot_pred_table)
+summary(comp_r_m_table)
+anova(comp_r_m_table)
+```
+
+
+## Check model assumptions
+```{r checkmodel_r}
+check_model(control_r_m2)
+check_model(comp_r_m)
+shapiro.test(R_plot_control$Final) 
+bartlett.test(Final ~ Treatment, data = R_plot)
+
+qqp(residuals(control_r_m), "norm")
+qqp(residuals(comp_r_m), "norm") 
+
+bptest(control_r_m2)
+
+
+check_outliers(comp_r_m) # outliers are 8c, 3c, 12m, 12s for comp
+check_outliers(control_r_m2)
+
+
+```
+
+
+
+# Endosymbiont density 
+## Model selection for endosymbiont density
+```{r}
+
+ed_nn_ms <- ED_long_control %>%
+ungroup() %>% # ungroup the data
+  nest(data = -c(Response_measurement, Predictor_measurement)) %>% # nest all the data measurement type
+  mutate(fit = map(data, ~lm(Final~ Predictor_scaled, data = .))) #create models
+ed_nn_ms
+
+ed_nn_models <- ed_nn_ms$fit # shows you each of the models
+
+ed_nn_results <- ed_nn_ms %>%
+  mutate(coeff = map(fit, tidy),
+         aic =  map(fit, glance)) %>% # R2 and others 
+  select(Predictor_measurement, coeff, aic) %>% # only keep the results
+  unnest() %>%
+  write_csv(here("Output", "Coefficients", "ed_coefficients.csv"))
+
+ed_nn_results_cleannames <- ed_nn_results %>%
+  mutate(Predictor = dplyr::recode(Predictor_measurement, 
+                            "max_pH" = "Max pH",
+                            "max_Salinity" = "Max Salinity",
+                            "max_Temperature_C" = "Max Temperature",
+                            "max_NN_umolL" = "Max Nitrite + Nitrate",
+                            "max_Phosphate_umolL" = "Max Phosphate",
+                            "min_pH" = "Min pH",
+                            "min_Salinity" = "Min Salinity",
+                            "min_Temperature_C" = "Min Temperature",
+                            "min_NN_umolL" = "Min Nitrite + Nitrate",
+                            "min_Phosphate_umolL" = "Min Phosphate",
+                            "range_pH" = "pH Range",
+                            "range_Salinity" = "Salinity Range",
+                            "range_Temperature_C" = "Temperature Range",
+                            "range_Phosphate_umolL" = "Phosphate Range",
+                            "range_NN_umolL" = "Nitrate + Nitrate Range",
+                            "mean_pH" = "Mean pH",
+                            "mean_Salinity" = "Mean Salinity",
+                            "mean_Temperature_C" = "Mean Temperature",
+                            "mean_NN_umolL" = "Mean Nitrite + Nitrate",
+                            "mean_Phosphate_umolL" = "Mean Phosphate")) %>%
+  mutate(delAIC = AIC - min(AIC)) %>%
+  arrange(delAIC)
+  
+```
+
+## Coefficient plot for endosymbiont density 
+
+```{r coeffplot_ed}
+ed_nn_results_cleannames1 <- ed_nn_results_cleannames %>%
+  filter(term == "Predictor_scaled") %>%
+  mutate(low = estimate - std.error * qnorm(.975), high = estimate + std.error*qnorm(.975)) %>%
+  mutate(alpha = if_else(p.value <= 0.05, 1, 0))
+
+coeff_ed_nn <- ggplot(data = ed_nn_results_cleannames1,
+                mapping = aes(x = estimate,
+                              y = reorder(Predictor, estimate), alpha = alpha)) +
+  theme_classic() +
+  geom_vline(xintercept = 0, lty = 2) +
+  geom_point() +
+  geom_errorbar(mapping = aes(xmax = high, xmin= low), width=0.1) +
+  theme(legend.position = "none") +
+  labs(y = "Scaled predictor measurements", x = "Coefficient") +
+    theme(axis.text = element_text(size = 14),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 12),
+        strip.text = element_text(size = 12),
+        axis.title.x = element_markdown(size = 14),
+        axis.title.y = element_markdown(size = 14))
+coeff_ed_nn
+```
+
+## AIC plot for endosymbiont density
+```{r aicplot_ed}
+ed_aic_plot_data <- ed_nn_results_cleannames %>%
+  select(Predictor, delAIC) %>%
+  unique() %>%
+  filter(delAIC < 4.2)
+
+ed_aic_plot <- ed_aic_plot_data %>%
+ggplot(mapping = aes(x = reorder(Predictor, -delAIC), y = delAIC)) +
+  geom_col() +
+  coord_flip() +
+  theme_classic() +
+  geom_hline(yintercept = 2, lty = 2) +
+  labs(x = "", y = "Delta AIC") +
+    theme(axis.text = element_text(size = 14),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 12),
+        strip.text = element_text(size = 12),
+        axis.title.x = element_markdown(size = 14),
+        axis.title.y = element_markdown(size = 14)) +
+  scale_x_discrete(labels = rev(c("Minimum Nitrate + Nitrite", "pH Range", "Mean Nitrate + Nitrite")))
+
+
+ed_aic_plot
+```
+
+## Regressions for endosymbiont density top model
+
+```{r  regression_ed}
+
+ED_plot1 <- ED_plot 
+
+ED_plot1$Treatment <- factor(ED_plot1$Treatment,
+                                 levels = c("No_neighbor", "Dead_skeletal", "Conspecific", "Heterospecific"),
+                                 labels = c("No Neighbor", "Dead Skeletal", "Conspecific", "Heterospecific"))
+
+
+ed_plot_control1 <- ggplot(ED_plot_control, mapping = aes(x = min_NN_umolL, y = Final)) +
+  geom_point(alpha = 0.7, size = 3, color = "#a45851") +
+  geom_smooth(method = "lm", color = "#556385") +
+  theme_bw() + 
+  scale_color_manual(values = colors) +
+  theme(axis.text = element_text(size = 14),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 12),
+        strip.text = element_text(size = 10),
+        axis.title.x = element_markdown(size = 18),
+        axis.title.y = element_markdown(size = 14)) +
+  labs(x = "Minimum Nitrite + Nitrate", y = "Endosymbiont Density (cells 10<sup>6</sup> cm<sup>-2</sup>)")
+ed_plot_control1
+
+ed_plot_control2 <- ggplot(ED_plot_control, mapping = aes(x = min_NN_umolL, y = Final)) +
+  geom_point(ED_plot1, mapping = aes(x = min_NN_umolL, y = Final, color = Treatment), alpha = 0.7, size = 3) +
+  geom_smooth(method = "lm", color = "#556385") +
+  theme_bw() + 
+  scale_color_manual(values = colors) +
+  theme(axis.text = element_text(size = 14),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 12),
+        strip.text = element_text(size = 10),
+        axis.title.x = element_markdown(size = 18),
+        axis.title.y = element_markdown(size = 14))+
+  labs(x = "Minimum Nitrite + Nitrate", y = "Endosymbiont Density (cells 10<sup>6</sup> cm<sup>-2</sup>)")
+
+ed_plot_control2
+```
+
+## Run top model for endosymbiont density (min N)
+
+
+```{r residual_ed}
+#create first model for only the no neighbor treatment
+control_ed_m <- lm(Final ~ Initial + min_NN_umolL, data = ED_plot_control)
+control_ed_m2 <- lm(Final ~ min_NN_umolL, data = ED_plot_control)
+
+summary(control_ed_m)
+glance(control_ed_m)
+summary(control_ed_m2)
+glance(control_ed_m2)
+
+AIC(control_ed_m, control_ed_m2)
+# run 2nd model because correlation between initial and final is not significant & better model
+
+test <- lm(Final ~ Initial, data = ED_plot)
+summary(test)
+ggplot(ED_plot_control, mapping = aes(x = Initial, y = Final)) +
+  geom_point() +
+  geom_smooth(method = "lm")
+
+exp_summ_ed <- tidy(control_ed_m2) %>% #use tidy to get the slopes and intercept
+  select(term, estimate) #select only rows needed here
+
+#save slopes and intercepts
+
+a_ed <- as.numeric(exp_summ_ed %>% filter(term == "min_NN_umolL") %>% select(estimate)) #slope of min NN
+c_ed <- as.numeric(exp_summ_ed %>% filter(term == "(Intercept)") %>% select(estimate)) #intercept
+
+
+#calculate expected and residuals
+ED_plot_pred <- ED_plot %>%
+  mutate(predict = (a_ed*min_NN_umolL) + c_ed, #calculate expected value
+         resid = Final - predict) %>% #calculate residuals (obs - exp)
+  group_by(Treatment) %>% #group by treatment 
+  mutate(meanresid = mean(resid)) 
+
+#create residual model to look at differences between treatments
+# cowtagID as a random effect. -1 gives us results without intercept
+comp_ed_m <- lmer(resid ~ Treatment -1 + (1|CowTagID), data = ED_plot_pred)
+summary(comp_ed_m)
+anova(comp_ed_m)
+
+tidy_ed <- tidy(comp_ed_m) %>%
+  mutate("Treatment" = term) %>%
+  filter(effect == "fixed") %>%
+  select(!group) %>%
+  mutate(high = estimate + std.error, low = estimate - std.error,
+         sig = case_when(p.value <= 0.05 ~ 1,
+                         TRUE ~ 0))
+
+tidy_ed$Treatment <- factor(tidy_ed$Treatment, levels = c("TreatmentNo_neighbor", "TreatmentDead_skeletal", "TreatmentConspecific", "TreatmentHeterospecific"),
+                           labels = c("No_neighbor", "Dead_skeletal", "Conspecific", "Heterospecific"))  
+
+tidy_ed1 <- left_join(ED_plot_pred, tidy_ed)
+  
+  
+tidy_ed1$Treatment <- factor(tidy_ed1$Treatment,
+                                 levels = c("No_neighbor", "Dead_skeletal", "Conspecific", "Heterospecific"),
+                                 labels = c("No Neighbor", "Dead Skeletal", "Conspecific", "Heterospecific"))
+
+
+#make ggplot to show residuals of treatments
+
+ed_plot_resid <- ggplot(tidy_ed1, mapping = aes(x = Treatment, y = estimate)) +
+  geom_point(size = 3) +
+  geom_jitter(mapping = aes(x = Treatment, y = resid, color = Treatment), size =2,  alpha = 0.7, width = 0.1) +
+  geom_errorbar(mapping = aes(ymax = high, ymin= low), width=0.1) +
+  labs(y = "Endosymbiont density observed-expected",
+                  x = "Neighbor Treatment") +
+  theme_bw() +
+  scale_color_manual(values = colors) +
+  geom_hline(yintercept = 0, lty = 2) +
+  theme(axis.text = element_text(size = 12),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 12),
+        strip.text = element_text(size = 12),
+        axis.title.x = element_markdown(size = 14),
+        axis.title.y = element_markdown(size = 10)) 
+ed_plot_resid
+
+
+# doing again just for table with no neighbor as intercept for direct comparison
+ED_plot_pred_table <- ED_plot %>%
+  mutate(predict = (a_ed*min_NN_umolL) + c_ed, #calculate expected value
+         resid = Final - predict) %>%
+    mutate(across(Treatment, factor, levels = c("No_neighbor", "Dead_skeletal", "Conspecific", "Heterospecific"),
+                  labels = c("aNo_neighbor", "Dead_skeletal", "Conspecific", "Heterospecific"))) %>% 
+  group_by(Treatment) %>% #group by treatment 
+  mutate(meanresid = mean(resid)) 
+
+#create residual model to look at differences between treatments
+# cowtagID as a random effect. -1 gives us results without intercept
+comp_ed_m_table <- lmer(resid ~ Treatment + (1|CowTagID), data = ED_plot_pred_table)
+summary(comp_ed_m_table)
+anova(comp_ed_m_table)
+```
+
+
+## Check model assumptions
+```{r checkmodel_ed}
+check_model(control_ed_m2)
+check_model(comp_ed_m)
+shapiro.test(ED_plot_control$Final)
+bartlett.test(Final ~ Treatment, data = ED_plot) 
+
+qqp(residuals(control_ed_m), "norm")
+qqp(residuals(comp_ed_m), "norm") 
+
+bptest(control_ed_m2)
+
+check_outliers(control_ed_m2)
+check_outliers(comp_ed_m) # the 7h fragment
+```
+
+
+# Chlorophyll content (normalized to SA)
+## Model selection for cc
+```{r}
+cc_nn_ms <- CC_long_control %>%
+ungroup() %>% # ungroup the data
+  nest(data = -c(Response_measurement, Predictor_measurement)) %>% # nest all the data measurement type
+  mutate(fit = map(data, ~lm(Final~Initial + Predictor_scaled, data = .))) #create models
+cc_nn_ms
+
+cc_nn_models <- cc_nn_ms$fit # shows you each of the models
+
+cc_nn_results <- cc_nn_ms %>%
+  mutate(coeff = map(fit, tidy),
+         aic =  map(fit, glance)) %>% # R2 and others 
+  select(Predictor_measurement, coeff, aic) %>% # only keep the results
+  unnest() %>%
+  write_csv(here("Output", "Coefficients", "cc_coefficients.csv")) 
+
+cc_nn_results_cleannames <- cc_nn_results %>%
+  mutate(Predictor = dplyr::recode(Predictor_measurement, 
+                            "max_pH" = "Max pH",
+                            "max_Salinity" = "Max Salinity",
+                            "max_Temperature_C" = "Max Temperature",
+                            "max_NN_umolL" = "Max Nitrite + Nitrate",
+                            "max_Phosphate_umolL" = "Max Phosphate",
+                            "min_pH" = "Min pH",
+                            "min_Salinity" = "Min Salinity",
+                            "min_Temperature_C" = "Min Temperature",
+                            "min_NN_umolL" = "Min Nitrite + Nitrate",
+                            "min_Phosphate_umolL" = "Min Phosphate",
+                            "range_pH" = "pH Range",
+                            "range_Salinity" = "Salinity Range",
+                            "range_Temperature_C" = "Temperature Range",
+                            "range_Phosphate_umolL" = "Phosphate Range",
+                            "range_NN_umolL" = "Nitrate + Nitrate Range",
+                            "mean_pH" = "Mean pH",
+                            "mean_Salinity" = "Mean Salinity",
+                            "mean_Temperature_C" = "Mean Temperature",
+                            "mean_NN_umolL" = "Mean Nitrite + Nitrate",
+                            "mean_Phosphate_umolL" = "Mean Phosphate")) %>%
+  mutate(delAIC = AIC - min(AIC)) %>%
+  arrange(delAIC)
+  
+```
+
+## Coefficient plot for cc
+
+```{r coeffplot_cc}
+cc_nn_results_cleannames1 <- cc_nn_results_cleannames %>%
+  filter(term == "Predictor_scaled") %>%
+  mutate(low = estimate - std.error * qnorm(.975), high = estimate + std.error*qnorm(.975)) %>%
+  mutate(alpha = if_else(p.value <= 0.05, 1, 0))
+
+coeff_cc_nn <- ggplot(data = cc_nn_results_cleannames1,
+                mapping = aes(x = estimate,
+                              y = reorder(Predictor, estimate), alpha = alpha)) +
+  theme_classic() +
+  geom_vline(xintercept = 0, lty = 2) +
+  geom_point() +
+  geom_errorbar(mapping = aes(xmax = high, xmin= low), width=0.1) +
+  theme(legend.position = "none") +
+  labs(y = "Scaled predictor measurements", x = "Coefficient") +
+    theme(axis.text = element_text(size = 14),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 12),
+        strip.text = element_text(size = 12),
+        axis.title.x = element_markdown(size = 14),
+        axis.title.y = element_markdown(size = 14))
+coeff_cc_nn
+```
+
+## AIC plot for cc
+```{r aicplot_cc}
+cc_aic_plot_data <- cc_nn_results_cleannames %>%
+  select(Predictor, delAIC) %>%
+  unique() %>%
+  filter(delAIC < 6) 
+
+cc_aic_plot <- cc_aic_plot_data %>%
+ggplot(mapping = aes(x = reorder(Predictor, -delAIC), y = delAIC)) +
+  geom_col() +
+  coord_flip() +
+  theme_classic() +
+  geom_hline(yintercept = 2, lty = 2) +
+  labs(x = "", y = "Delta AIC") +
+    theme(axis.text = element_text(size = 14),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 12),
+        strip.text = element_text(size = 12),
+        axis.title.x = element_markdown(size = 14),
+        axis.title.y = element_markdown(size = 14)) +
+  scale_x_discrete(labels = rev(c("pH Range", "Temperature Range", "Salinity Range")))
+
+cc_aic_plot
+```
+
+## Regressions for cc
+
+```{r  regression_cc}
+
+CC_plot1 <- CC_plot
+
+CC_plot1$Treatment <- factor(CC_plot1$Treatment,
+                                 levels = c("No_neighbor", "Dead_skeletal", "Conspecific", "Heterospecific"),
+                                 labels = c("No Neighbor", "Dead Skeletal", "Conspecific", "Heterospecific"))
+
+
+cc_plot_control1 <- ggplot(CC_plot_control, mapping = aes(x = range_pH, y = Final)) +
+  geom_point(alpha = 0.7, size = 3, color = "#a45851") +
+  geom_smooth(method = "lm", color = "#556385") +
+  theme_bw() + 
+  scale_color_manual(values = colors) +
+  theme(axis.text = element_text(size = 14),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 12),
+        strip.text = element_text(size = 10),
+        axis.title.x = element_markdown(size = 18),
+        axis.title.y = element_markdown(size = 14)) +
+  labs(x = "Range pH", y = "Final CC cm<sup>-2</sup>")
+
+cc_plot_control1
+
+cc_plot_control2 <- ggplot(CC_plot_control, mapping = aes(x = range_pH, y = Final)) +
+  geom_point(CC_plot1, mapping = aes(x = range_pH, y = Final, color = Treatment), alpha = 0.7, size = 3) +
+  geom_smooth(method = "lm", color = "#556385") +
+  theme_bw() + 
+  scale_color_manual(values = colors) +
+  theme(axis.text = element_text(size = 14),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 12),
+        strip.text = element_text(size = 10),
+        axis.title.x = element_markdown(size = 18),
+        axis.title.y = element_markdown(size = 14))+
+  labs(x = "Range pH", y = "Final CC cm<sup>-2</sup>")
+
+cc_plot_control2
+
+```
+
+## Run top model for cc
+
+
+```{r residual_cc}
+#create first model for only the no neighbor treatment
+control_cc_m <- lm(Final ~ Initial + range_pH, data = CC_plot_control)
+control_cc_m2 <- lm(Final ~ range_pH, data = CC_plot_control)
+
+summary(control_cc_m)
+glance(control_cc_m)
+summary(control_cc_m2)
+glance(control_cc_m2)
+
+AIC(control_cc_m, control_cc_m2)
+
+summary(test <- lm(Final ~ Initial, data = CC_plot)) ### they are correlated
+ggplot(data = CC_plot_control, mapping = aes(x = Initial, y = Final)) +
+  geom_point() +
+  geom_smooth(method = "lm")
+
+exp_summ_cc <- tidy(control_cc_m) %>% #use tidy to get the slopes and intercept
+  select(term, estimate) #select only rows needed here
+
+#save slopes and intercepts
+
+a_cc <- as.numeric(exp_summ_cc %>% filter(term == "range_pH") %>% select(estimate)) #slope of del15N
+b_cc <- as.numeric(exp_summ_cc %>% filter(term == "Initial") %>% select(estimate))
+c_cc <- as.numeric(exp_summ_cc %>% filter(term == "(Intercept)") %>% select(estimate)) #intercept
+
+
+#calculate expectcc and residuals
+CC_plot_pred <- CC_plot %>%
+  mutate(predict = (a_cc*range_pH) +  (b_cc*Initial) + c_cc, #calculate expected value
+         resid = Final - predict) %>% #calculate residuals (obs - exp)
+  group_by(Treatment) %>% #group by treatment 
+  mutate(meanresid = mean(resid))  
+
+#create residual model to look at differences between treatments
+# cowtagID as a random effect. -1 gives us results without intercept
+comp_cc_m <- lmer(resid ~ Treatment -1 + (1|CowTagID), data = CC_plot_pred)
+summary(comp_cc_m)
+anova(comp_cc_m)
+
+tidy_cc <- tidy(comp_cc_m) %>%
+  mutate("Treatment" = term) %>%
+  filter(effect == "fixed") %>%
+  select(!group) %>%
+  mutate(high = estimate + std.error, low = estimate - std.error,
+         sig = case_when(p.value <= 0.05 ~ 1,
+                         TRUE ~ 0)) 
+
+tidy_cc$Treatment <- factor(tidy_cc$Treatment, levels = c("TreatmentNo_neighbor", "TreatmentDead_skeletal", "TreatmentConspecific", "TreatmentHeterospecific"),
+                           labels = c("No_neighbor", "Dead_skeletal", "Conspecific", "Heterospecific"))  
+
+tidy_cc1 <- left_join(CC_plot_pred, tidy_cc)
+
+
+tidy_cc1$Treatment <- factor(tidy_cc1$Treatment,
+                                 levels = c("No_neighbor", "Dead_skeletal", "Conspecific", "Heterospecific"),
+                                 labels = c("No Neighbor", "Dead Skeletal", "Conspecific", "Heterospecific"))
+
+label.dfcc <- data.frame(Treatment = c("Conspecific"),
+                       estimate = c(0.45))
+#make ggplot to show residuals of treatments
+
+cc_plot_resid <- ggplot(tidy_cc1, mapping = aes(x = Treatment, y = estimate)) +
+  geom_point(size = 3) +
+  geom_jitter(mapping = aes(x = Treatment, y = resid, color = Treatment), size =2,  alpha = 0.7, width = 0.1) +
+  geom_errorbar(mapping = aes(ymax = high, ymin= low), width=0.1) +
+  labs(y = "Chlorophyll a content observed-expected  (mg cm<sup>-2</sup>)",
+                  x = "Neighbor Treatment") +
+  theme_bw() +
+  scale_color_manual(values = colors) +
+  geom_hline(yintercept = 0, lty = 2) +
+  theme(axis.text = element_text(size = 12),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 12),
+        strip.text = element_text(size = 12),
+        axis.title.x = element_markdown(size = 14),
+        axis.title.y = element_markdown(size = 10)) +
+  geom_text(data = label.dfr, label = "", size = 10) 
+
+cc_plot_resid
+
+
+### now doing with no neighbor as intercept for direct comparison for model stats
+CC_plot_pred_table <- CC_plot %>%
+  mutate(predict = (a_cc*range_pH) +  (b_cc*Initial) + c_cc, #calculate expected value
+         resid = Final - predict) %>%
+    mutate(across(Treatment, factor, levels = c("No_neighbor", "Dead_skeletal", "Conspecific", "Heterospecific"),
+                  labels = c("aNo_neighbor", "Dead_skeletal", "Conspecific", "Heterospecific"))) %>% 
+  group_by(Treatment) %>% #group by treatment 
+  mutate(meanresid = mean(resid)) 
+
+#create residual model to look at differences between treatments
+# cowtagID as a random effect. -1 gives us results without intercept
+comp_cc_m_table <- lmer(resid ~ Treatment + (1|CowTagID), data = CC_plot_pred_table)
+summary(comp_cc_m_table)
+anova(comp_cc_m_table)
+```
+
+
+## Check model assumptions
+```{r checkmodel_cc}
+check_model(control_cc_m2)
+check_model(comp_cc_m) #7h is outlier
+shapiro.test(CC_plot_control$Final) 
+bartlett.test(Final ~ Treatment, data = CC_plot) 
+
+qqp(residuals(control_cc_m), "norm")
+qqp(residuals(comp_cc_m), "norm") 
+
+bptest(control_cc_m2)
+
+```
+## Combined plots 
+
+### AIC plots
+```{r aic_patched, fig.height=6, fig.width = 7}
+gp_aic_patch <- gp_aic_plot_data %>%
+ggplot(mapping = aes(x = reorder(Predictor, -delAIC), y = delAIC)) +
+  geom_col() +
+  coord_flip() +
+  theme_classic() +
+  geom_hline(yintercept = 2, lty = 2) +
+  labs(x = "", y = "", title = "Gross Photosynthesis") +
+  theme(axis.text = element_text(size = 10),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 12),
+        strip.text = element_text(size = 10),
+        axis.title = element_markdown(size = 11),
+        title = element_text(size = 9)) + 
+  scale_x_discrete(labels = rev(c("pH Range", "Minimum pH", "Mean pH")))
+gp_aic_patch
+
+
+r_aic_patch <- r_aic_plot_data %>%
+ggplot(mapping = aes(x = reorder(Predictor, -delAIC), y = delAIC)) +
+  geom_col() +
+  coord_flip() +
+  theme_classic() +
+  geom_hline(yintercept = 2, lty = 2) +
+  labs(x = "", y = "", title = "Respiration") +
+    theme(axis.text = element_text(size = 10),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 12),
+        strip.text = element_text(size = 12),
+        axis.title = element_markdown(size = 11), 
+        title = element_text(size = 9)) +
+  scale_x_discrete(labels = rev(c("pH Range", "Maximum pH", "Minimum pH")))
+r_aic_patch
+
+ed_aic_patch <- ed_aic_plot_data %>%
+ggplot(mapping = aes(x = reorder(Predictor, -delAIC), y = delAIC)) +
+  geom_col() + 
+  coord_flip() +
+  theme_classic() +
+  geom_hline(yintercept = 2, lty = 2) +
+  labs(x = "", y = "", title = "Endosymbiont Density") +
+    theme(axis.text = element_text(size = 10),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 12),
+        strip.text = element_text(size = 12),
+        axis.title = element_markdown(size = 11),
+        title = element_text(size = 9)) +
+  scale_x_discrete(labels = rev(c("Minimum Nitrate + Nitrite", "pH Range", "Mean Nitrate + Nitrite")))
+ed_aic_patch
+
+cc_aic_patch <- cc_aic_plot_data %>%
+ggplot(mapping = aes(x = reorder(Predictor, -delAIC), y = delAIC)) +
+  geom_col() +
+  coord_flip() +
+  theme_classic() +
+  geom_hline(yintercept = 2, lty = 2) +
+  labs(x = "", y = "", title = "Chlorophyll a Content (surface area normalized)") +
+    theme(axis.text = element_text(size = 10),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 12),
+        strip.text = element_text(size = 12),
+        axis.title = element_markdown(size = 11),
+        title = element_text(size = 9)) +
+  scale_x_discrete(labels = rev(c("pH Range", "Temperature Range", "Salinity Range")))
+
+
+aic_combined <-
+  ed_aic_patch + cc_aic_patch + gp_aic_patch + r_aic_patch +
+  plot_layout(guides = "collect") +
+  plot_annotation(tag_levels = "A")
+
+result_aic <- patchwork::patchworkGrob(aic_combined)
+plot_aic <- gridExtra::grid.arrange(result_aic, 
+                                    bottom = "ΔAIC")
+
+
+```
+
+### Control plots - only neighbor treatment
+
+```{r control1_patched, fig.height=6, fig.width = 7}
+gp_plot_control1 <- ggplot(GP_plot_control, mapping = aes(x = range_pH, y = Final)) +
+  geom_point(alpha = 0.7, size = 1) +
+  geom_smooth(method = "lm", color = "black") +
+  theme_bw() + 
+  scale_color_manual(values = colors) +
+  theme(axis.text = element_text(size = 8),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 12),
+        strip.text = element_text(size = 10),
+        axis.title.x = element_markdown(size = 10),
+        axis.title.y = element_markdown(size = 9)) +
+  labs(x = "pH Range", y = "Gross Photosynthesis (µmol O<sub>2</sub> cm<sup>-2</sup> hr<sup>-1</sup>)") 
+
+r_plot_control1 <- ggplot(R_plot_control, mapping = aes(x = range_pH, y = Final)) +
+  geom_point(alpha = 0.7, size = 1) +
+  geom_smooth(method = "lm", color = "black") +
+  theme_bw() + 
+  scale_color_manual(values = colors) +
+  theme(axis.text = element_text(size = 8),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 12),
+        strip.text = element_text(size = 10),
+        axis.title.x = element_markdown(size = 10),
+        axis.title.y = element_markdown(size = 9)) +
+  labs(x = "pH Range", y = "Respiration (µmol O<sub>2</sub> cm<sup>-2</sup> hr<sup>-1</sup>)")
+
+ed_plot_control1 <- ggplot(ED_plot_control, mapping = aes(x = min_NN_umolL, y = Final)) +
+  geom_point(alpha = 0.7, size = 1) +
+  geom_smooth(method = "lm", color = "black") +
+  theme_bw() + 
+  scale_color_manual(values = colors) +
+  theme(axis.text = element_text(size = 8),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 12),
+        strip.text = element_text(size = 10),
+        axis.title.x = element_markdown(size = 10),
+        axis.title.y = element_markdown(size = 9)) +
+  labs(x = "Minimum Nitrite + Nitrate (µmol L<sup>-1</sup>)", y = "Endosymbiont           Density (cells 10<sup>6</sup> cm<sup>-2</sup>)")
+
+cc_plot_control1 <- ggplot(CC_plot_control, mapping = aes(x = range_pH, y = Final)) +
+  geom_point(alpha = 0.7, size = 1) +
+  geom_smooth(method = "lm", color = "black") +
+  theme_bw() + 
+  scale_color_manual(values = colors) +
+  theme(axis.text = element_text(size = 8),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 12),
+        strip.text = element_text(size = 10),
+        axis.title.x = element_markdown(size = 10),
+        axis.title.y = element_markdown(size = 9)) +
+  labs(x = "pH Range", y = "Chlorophyll         a Content (µg cm<sup>-2</sup>)")
+
+
+control1_combined <-
+  ed_plot_control1 + cc_plot_control1 + gp_plot_control1 + r_plot_control1 +
+  plot_layout(guides = "collect", heights = 20) +
+  plot_annotation(tag_levels = "A")
+
+result_control1 <- patchwork::patchworkGrob(control1_combined)
+plot_control1 <- gridExtra::grid.arrange(result_control1)
+
+```
+
+### Control plots- all observations overlaid (supplemental material)
+
+```{r control2_patched, fig.height=6, fig.width = 7}
+gp_plot_control2 <- ggplot(GP_plot_control, mapping = aes(x = range_pH, y = Final)) +
+  geom_point(GP_plot1, mapping = aes(x = range_pH, y = Final, color = Treatment), alpha = 0.7, size = 1.5) +
+  geom_smooth(method = "lm", color = "#556385") +
+  theme_bw() + 
+  scale_color_manual(values = colors) +
+  theme(axis.text = element_text(size = 8),
+        legend.text = element_text(size = 8),
+        legend.title = element_text(size = 10),
+        strip.text = element_text(size = 10),
+        axis.title.x = element_markdown(size = 10),
+        axis.title.y = element_markdown(size = 10)) +
+  labs(x = "pH Range", y = "Photosynthesis (µmol O<sub>2</sub> cm<sup>-2</sup> hr<sup>-1</sup>)")
+
+gp_plot_control2
+
+r_plot_control2 <- ggplot(R_plot_control, mapping = aes(x = range_pH, y = Final)) +
+  geom_point(R_plot1, mapping = aes(x = range_pH, y = Final, color = Treatment), alpha = 0.7, size = 1.5) +
+  geom_smooth(method = "lm", color = "#556385") +
+  theme_bw() + 
+  scale_color_manual(values = colors) +
+  theme(axis.text = element_text(size = 8),
+        legend.text = element_text(size = 8),
+        legend.title = element_text(size = 10),
+        strip.text = element_text(size = 10),
+        axis.title.x = element_markdown(size = 10),
+        axis.title.y = element_markdown(size = 10)) +
+  labs(x = "pH Range", y = "Respiration (µmol O<sub>2</sub> cm<sup>-2</sup> hr<sup>-1</sup>)")
+
+r_plot_control2
+
+ed_plot_control2 <- ggplot(ED_plot_control, mapping = aes(x = min_NN_umolL, y = Final)) +
+  geom_point(ED_plot1, mapping = aes(x = min_NN_umolL, y = Final, color = Treatment), alpha = 0.7, size = 1.5) +
+  geom_smooth(method = "lm", color = "#556385") +
+  theme_bw() + 
+  scale_color_manual(values = colors) +
+  theme(axis.text = element_text(size = 8),
+        legend.text = element_text(size = 8),
+        legend.title = element_text(size = 10),
+        strip.text = element_text(size = 10),
+        axis.title.x = element_markdown(size = 10),
+        axis.title.y = element_markdown(size = 10)) +
+  labs(x = "Minimum Nitrite + Nitrate", y = "Endosymbiont Density (cells 10<sup>6</sup> cm<sup>-2</sup>)")
+
+ed_plot_control2
+
+cc_plot_control2 <- ggplot(CC_plot_control, mapping = aes(x = range_pH, y = Final)) +
+  geom_point(CC_plot1, mapping = aes(x = range_pH, y = Final, color = Treatment), alpha = 0.7, size = 1.5) +
+  geom_smooth(method = "lm", color = "#556385") +
+  theme_bw() + 
+  scale_color_manual(values = colors) +
+  theme(axis.text = element_text(size = 8),
+        legend.text = element_text(size = 8),
+        legend.title = element_text(size = 10),
+        strip.text = element_text(size = 10),
+        axis.title.x = element_markdown(size = 10),
+        axis.title.y = element_markdown(size = 10)) +
+  labs(x = "pH Range", y = "Chlorophyll a Content (µg cm<sup>-2</sup>)")
+
+cc_plot_control2
+
+
+control2_combined <-
+  ed_plot_control2 + cc_plot_control2 + gp_plot_control2 + r_plot_control2 +
+  plot_layout(guides = "collect") +
+  plot_annotation(tag_levels = "A")
+
+result_control2 <- patchwork::patchworkGrob(control2_combined)
+plot_control2 <- gridExtra::grid.arrange(result_control2)
+
+plot_control2
+
+```
+
+### Treatment residual plots combined 
+
+```{r residual_patched, fig.height=6, fig.width = 7}
+gp_plot_resid <- ggplot(tidy_gp1, mapping = aes(x = Treatment, y = estimate)) +
+    geom_jitter(mapping = aes(x = Treatment, y = resid, color = Treatment), size =1.5,  alpha = 0.5, width = 0.1) +
+      geom_point(size = 2.5) +
+  geom_errorbar(mapping = aes(ymax = high, ymin= low), width=0.2) +
+  labs(y = "", x = "", title = "Gross Photosynthesis") +
+  theme_bw() +
+  scale_color_manual(values = colors) +
+  geom_hline(yintercept = 0, lty = 2) +
+  theme(axis.text.y = element_text(size = 8),
+        axis.text.x = element_text(size = 1),
+        legend.position = "none",
+        strip.text = element_text(size = 10),
+        axis.title.x = element_markdown(size = 10),
+        axis.title.y = element_markdown(size = 10),
+        title = element_text(size = 9)) +
+  geom_text(data = label.df, label = "*", size = 10, y = 0.67) 
+
+gp_plot_resid
+
+r_plot_resid <- ggplot(tidy_r1, mapping = aes(x = Treatment, y = estimate)) +
+  geom_jitter(mapping = aes(x = Treatment, y = resid, color = Treatment), size =1.5,  alpha = 0.5, width = 0.1) +
+    geom_point(size = 2.5) +
+  geom_errorbar(mapping = aes(ymax = high, ymin= low), width=0.2) +
+  labs(y = "", x = "", title = "Respiration") +
+  theme_bw() +
+  scale_color_manual(values = colors) +
+  geom_hline(yintercept = 0, lty = 2) +
+  theme(axis.text.y = element_text(size = 8),
+        axis.text.x = element_text(size = 1),
+        legend.position = "none",
+        strip.text = element_text(size = 10),
+        axis.title.x = element_markdown(size = 10),
+        axis.title.y = element_markdown(size = 10),
+        title = element_text(size = 9)) +
+  geom_text(data = label.dfr, label = "*", size = 10, y = 0.25) 
+
+
+r_plot_resid
+
+ed_plot_resid <- ggplot(tidy_ed1, mapping = aes(x = Treatment, y = estimate)) +
+  geom_jitter(mapping = aes(x = Treatment, y = resid, color = Treatment), size =1.5,  alpha = 0.5, width = 0.1) +
+    geom_point(size = 2.5) +
+  geom_errorbar(mapping = aes(ymax = high, ymin= low), width=0.2) +
+  labs(y = "",x = "", title = "Endosymbiont Density") +
+  theme_bw() +
+  scale_color_manual(values = colors) +
+  geom_hline(yintercept = 0, lty = 2) +
+  theme(axis.text.y = element_text(size = 8),
+        axis.text.x = element_blank(),
+        legend.position = "none",
+        strip.text = element_text(size = 10),
+        axis.title.x = element_markdown(size = 10),
+        axis.title.y = element_markdown(size = 10),
+        title = element_text(size = 9))  
+
+ed_plot_resid
+
+cc_plot_resid <- ggplot(tidy_cc1, mapping = aes(x = Treatment, y = estimate)) +
+  geom_jitter(mapping = aes(x = Treatment, y = resid, color = Treatment), size =1.5,  alpha = 0.5, width = 0.1) +
+    geom_point(size = 2.5) +
+  geom_errorbar(mapping = aes(ymax = high, ymin= low), width=0.2) +
+  labs(y = "",x = "", title = "Chlorophyll a Content (surface area normalized)") +
+  theme_bw() +
+  scale_color_manual(values = colors) +
+  geom_hline(yintercept = 0, lty = 2) +
+  theme(axis.text.y = element_text(size = 8),
+        axis.text.x = element_blank(),
+        legend.position = "none",
+        strip.text = element_text(size = 10),
+        axis.title.x = element_markdown(size = 10),
+        axis.title.y = element_markdown(size = 10),
+        title = element_text(size = 9)) +
+  geom_text(data = label.dfr, label = "", size = 10)  
+
+
+cc_plot_resid
+
+resid_combined <-
+  ed_plot_resid + cc_plot_resid + gp_plot_resid + r_plot_resid +
+  plot_layout(guides = "collect") 
+
+result_resid <- patchwork::patchworkGrob(resid_combined)
+plot_resid <- gridExtra::grid.arrange(result_resid, left = "Residuals (Observed - Expected)",
+                                      bottom = "Neighbor Treatment")
+
+
+
+```
+
+Tables for model selection stats 
+
+
+```{r}
+
+ed_table <- ed_nn_results_cleannames %>%
+  select(Predictor, term, estimate, std.error, statistic, p.value, r.squared, adj.r.squared, AIC) %>%
+  mutate(Response = "Endosymbiont Density", 
+         delAIC = AIC - min(AIC)) %>%
+  arrange(delAIC) %>%
+  select(Response, everything()) 
+
+
+cc_table <- cc_nn_results_cleannames %>%
+  select(Predictor, term, estimate, std.error, statistic, p.value, r.squared, adj.r.squared, AIC) %>%
+  mutate(Response = "Chlorophyll a Content (cm-2)", 
+         delAIC = AIC - min(AIC)) %>%
+  arrange(delAIC) %>%
+  select(Response, everything()) 
+
+gp_table <- gp_nn_results_cleannames %>%
+  select(Predictor, term, estimate, std.error, statistic, p.value, r.squared, adj.r.squared, AIC) %>%
+  mutate(Response = "Gross Photosynthesis", 
+         delAIC = AIC - min(AIC)) %>%
+  arrange(delAIC) %>%
+  select(Response, everything()) 
+
+r_table <- results_r_nn_cleannames %>%
+  select(Predictor, term, estimate, std.error, statistic, p.value, r.squared, adj.r.squared, AIC) %>%
+  mutate(Response = "Respiration", 
+         delAIC = AIC - min(AIC)) %>%
+  arrange(delAIC) %>%
+  select(Response, everything())
+
+table_modelselect_data <- rbind(ed_table, cc_table, gp_table, r_table) %>%
+  rename(`ΔAIC` = delAIC) %>%
+  arrange(Response) %>%
+  mutate(round(across(is.numeric), 2)) %>%
+  select(!c(std.error, statistic, r.squared, adj.r.squared)) %>%
+  rename(Term = term, Estimate = estimate,`P-value` = p.value) %>%
+  mutate(Term = if_else(Term == "Predictor_scaled", "Predictor Scaled", Term)) %>%
+  filter(Term == "Predictor Scaled") %>%
+  mutate(`P-value` = round(`P-value`, 3),
+         `P-value` = if_else(`P-value` < 0.0001, 0.0001, `P-value`),
+         sig = case_when(`P-value` > 0.05 ~ "",
+                         `P-value` <= 0.05 & `P-value` > 0.01 ~ "*",
+                         `P-value` <= 0.01 & `P-value` > 0.001 ~ "**",
+                         `P-value` <= 0.001 ~ "***"),
+         `P-value` = as.character(`P-value`),
+         `P-value` = if_else(`P-value` == "0.0001", "< 0.0001", `P-value`))
+
+table_modelselect  <- table_modelselect_data %>%
+  kbl() %>%
+  kable_classic_2(full_width = F, html_font = "Cambria", "striped") %>%
+  pack_rows(index = table(table_modelselect_data$Response))
+  # column_spec(c(5, 6, 7), color = "white", background = "#a45851") %>%
+  # column_spec(c(2, 3, 4), color = "white", background = "#5d74a5") %>%
+  # add_header_above(c(" " = 1, "Low Range" = 3, "High Range" = 3, " " = 1))
+
+table_modelselect
+
+C
+
+
+```
+
+Tables for no neighbor models
+
+```{r}
+summary(control_ed_m2)
+summary(control_cc_m)
+summary(control_gp_m2)
+summary(control_r_m2)
+
+control_ed_summ <- tidy(control_ed_m2) %>% 
+  mutate(Response = "Endosymbiont Density")
+control_cc_summ <- tidy(control_cc_m) %>% 
+  mutate(Response = "Chlorophyll a Content (cm-2)") 
+control_gp_summ <- tidy(control_gp_m2) %>% 
+  mutate(Response = "Gross Photosynthesis")
+control_r_summ <- tidy(control_r_m2) %>% 
+  mutate(Response = "Respiration")
+
+table_controlstats <- rbind(control_ed_summ, control_cc_summ, control_gp_summ, control_r_summ) %>%
+  arrange(Response) %>%
+  select(Response, everything()) %>%
+  mutate(round(across(is.numeric), 2)) %>%
+  rename(Term = term, Estimate = estimate,`P-value` = p.value, 
+         Statistic = statistic, `Standard Error` = std.error) %>%
+  mutate(Term = case_when(Term == "min_NN_umolL" ~ "Minimum Nitrate + Nitrite",
+                          Term == "range_pH" ~ "pH Range",
+                          Term == "Initial" ~ "Initial",
+                          Term == "(Intercept)" ~ "(Intercept)"),
+         `P-value` = round(`P-value`, 3),
+         `P-value` = if_else(`P-value` < 0.0001, 0.0001, `P-value`),
+         sig = case_when(`P-value` > 0.05 ~ "",
+                         `P-value` <= 0.05 & `P-value` > 0.01 ~ "*",
+                         `P-value` <= 0.01 & `P-value` > 0.001 ~ "**",
+                         `P-value` <= 0.001 ~ "***"),
+         `P-value` = as.character(`P-value`),
+         `P-value` = if_else(`P-value` == "0.0001", "< 0.0001", `P-value`))
+
+table_modelcontrol <- table_controlstats %>%
+  kbl(col.names = c("Response", "Term", "Estimate", "Standard Error", "Statistic", "P-value", "")) %>%
+  kable_classic_2(full_width = F, html_font = "Cambria", "striped") %>%
+  pack_rows(index = table(table_controlstats$Response))
+  # column_spec(c(5, 6, 7), color = "white", background = "#a45851") %>%
+  # column_spec(c(2, 3, 4), color = "white", background = "#5d74a5") %>%
+  # add_header_above(c(" " = 1, "Low Range" = 3, "High Range" = 3, " " = 1))
+
+table_modelcontrol
+
+# table_modelcontrol %>%
+#   kableExtra::save_kable(file = "table1.html", self_contained = T)
+
+```
+
+table for comp models
+
+```{r}
+
+tidy(comp_ed_m_table)
+
+
+comp_ed_summ <- tidy(comp_ed_m_table) %>% mutate(Response = "Endosymbiont Density") %>%
+  mutate(across(term, factor, levels = c("(Intercept)", "TreatmentDead_skeletal",
+                                         "TreatmentConspecific", "TreatmentHeterospecific"),
+                labels = c("(Intercept)", "Dead Skeletal", "Conspecific", "Heterospecific")))
+comp_cc_summ <- tidy(comp_cc_m_table) %>% mutate(Response = "Chlorophyll a Content (cm-2)") %>%
+  mutate(across(term, factor, levels = c("(Intercept)", "TreatmentDead_skeletal",
+                                         "TreatmentConspecific", "TreatmentHeterospecific"),
+                labels = c("(Intercept)", "Dead Skeletal", "Conspecific", "Heterospecific")))
+comp_gp_summ <- tidy(comp_gp_m_table) %>% mutate(Response = "Gross Photosynthesis") %>%
+  mutate(across(term, factor, levels = c("(Intercept)", "TreatmentDead_skeletal",
+                                         "TreatmentConspecific", "TreatmentHeterospecific"),
+                labels = c("(Intercept)", "Dead Skeletal", "Conspecific", "Heterospecific")))
+comp_r_summ <- tidy(comp_r_m_table) %>% mutate(Response = "Respiration") %>%
+  mutate(across(term, factor, levels = c("(Intercept)", "TreatmentDead_skeletal",
+                                         "TreatmentConspecific", "TreatmentHeterospecific"),
+                labels = c("(Intercept)", "Dead Skeletal", "Conspecific", "Heterospecific")))
+
+# fixed first
+table_compstats <- rbind(comp_ed_summ, comp_cc_summ, comp_gp_summ, comp_r_summ) %>%
+  filter(effect == "fixed") %>%
+  select(!c(effect, group)) %>%
+  arrange(Response) %>%
+  select(Response, everything()) %>%
+  mutate(round(across(is.numeric), 2)) %>%
+  rename(Term = term, Estimate = estimate, `P-value` = p.value, 
+         Statistic = statistic, `Standard Error` = std.error) %>%
+  mutate(`P-value` = round(`P-value`, 3),
+         `P-value` = if_else(`P-value` < 0.0001, 0.0001, `P-value`),
+         sig = case_when(`P-value` > 0.05 ~ "",
+                         `P-value` <= 0.05 & `P-value` > 0.01 ~ "*",
+                         `P-value` <= 0.01 & `P-value` > 0.001 ~ "**",
+                         `P-value` <= 0.001 ~ "***"),
+         `P-value` = as.character(`P-value`),
+         `P-value` = if_else(`P-value` == "0.0001", "< 0.0001", `P-value`))
+
+table_modelcomp <- table_compstats %>%
+  kbl(col.names = c("Response", "Term", "Estimate", "Standard Error", "Statistic", "df", "P-value", "")) %>%
+  kable_classic_2(full_width = F, html_font = "Cambria", "striped") %>%
+  pack_rows(index = table(table_compstats$Response))
+  # column_spec(c(5, 6, 7), color = "white", background = "#a45851") %>%
+  # column_spec(c(2, 3, 4), color = "white", background = "#5d74a5") %>%
+  # add_header_above(c(" " = 1, "Low Range" = 3, "High Range" = 3, " " = 1))
+
+table_modelcomp 
+
+# 
+#   table_modelcomp %>%
+#   kableExtra::save_kable(file = "table_comp.html", self_contained = T)
+```
+
+random effects for comp models
+
+```{r}
+
+
+summary(comp_ed_m_table)
+summary(comp_cc_m_table)
+summary(comp_gp_m_table)
+summary(comp_r_m_table)
+
+
+comp_ed_m_r2 <- as.data.frame(r.squaredGLMM(comp_ed_m_table)) %>%
+  mutate(Observations = 58,
+         `Exp Location Variance` = 0.004,
+         `Residual Variance` = 0.006,
+         Response = "Endosymbiont Density") %>%
+  mutate(`Marginal R-squared` = round(R2m, 2),
+         `Conditional R-squared` = round(R2c, 2)) %>%
+  select(Response, Observations, everything())
+comp_cc_m_r2 <- as.data.frame(r.squaredGLMM(comp_cc_m_table)) %>%
+  mutate(Observations = 58,
+         `Exp Location Variance` = 0.12,
+         `Residual Variance` = 0.33,
+         Response = "Chlorophyll a Content (cm-2)") %>%
+  mutate(`Marginal R-squared` = round(R2m, 2),
+         `Conditional R-squared` = round(R2c, 2)) %>%
+  select(Response, Observations, everything())
+comp_gp_m_r2 <- as.data.frame(r.squaredGLMM(comp_gp_m_table)) %>%
+  mutate(Observations = 59,
+         `Exp Location Variance` = 0.09,
+         `Residual Variance` = 0.06,
+         Response = "Gross Photosynthesis") %>%
+  mutate(`Marginal R-squared` = round(R2m, 2),
+         `Conditional R-squared` = round(R2c, 2)) %>%
+  select(Response, Observations, everything())
+comp_r_m_r2 <- as.data.frame(r.squaredGLMM(comp_r_m_table)) %>%
+  mutate(Observations = 59,
+         `Exp Location Variance` = 0.02,
+         `Residual Variance` = 0.01,
+         Response = "Respiration") %>%
+  mutate(`Marginal R-squared` = round(R2m, 2),
+         `Conditional R-squared` = round(R2c, 2)) %>%
+  select(Response, Observations, everything())
+
+
+table_r2_comp <- rbind(comp_ed_m_r2, comp_cc_m_r2, comp_gp_m_r2, comp_r_m_r2) %>%
+  select(!c(R2m, R2c)) %>%
+  rename(n = Observations)
+table_r2_comp2  <- table_r2_comp %>%
+  kbl() %>%
+  kable_classic_2(full_width = F, html_font = "Cambria", "striped")
+
+table_r2_comp2
+
+# table_r2_comp2 %>%
+#   kableExtra::save_kable(file = here("Output", "Models", "randomeffects.html"), self_contained = T)
+```
+
+make joined coefficient plots 
+
+```{r}
+
+coeff_ed <- ed_nn_results_cleannames1 %>%
+  mutate(Response_measurement = "ED") %>%
+  select(Response_measurement, Predictor, estimate, low, high, p.value, delAIC, alpha)
+coeff_cc <- cc_nn_results_cleannames1 %>%
+  mutate(Response_measurement = "CC cm-2")%>%
+  select(Response_measurement, Predictor, estimate, low, high, p.value, delAIC, alpha)
+coeff_gp <- gp_nn_results_cleannames1 %>%
+  mutate(Response_measurement = "GP")%>%
+  select(Response_measurement, Predictor, estimate, low, high, p.value, delAIC, alphasig) %>% rename(alpha = alphasig)
+coeff_r <- results_r_nn_cleannames1 %>%
+  mutate(Response_measurement = "R")%>%
+  select(Response_measurement, Predictor, estimate, low, high, p.value, delAIC, alpha)
+
+
+coeffs_combined <- rbind(coeff_ed, coeff_cc, coeff_gp, coeff_r) %>%
+  group_by(Response_measurement) %>%
+  mutate(best_fit = if_else(delAIC == 0, "Best-Fit", "Not"))  %>%
+  mutate(Predictor2 = case_when(Predictor == "Min Nitrite + Nitrate" ~ "Min Nitrate + Nitrite", 
+                             Predictor == "Mean Nitrite + Nitrate" ~"Mean Nitrate + Nitrite", 
+                             Predictor == "Max Nitrite + Nitrate"~ "Max Nitrate + Nitrite", 
+                             Predictor == "Nitrate + Nitrate Range" ~ "Nitrate + Nitrite Range",
+                             !grepl("Nitrite", Predictor) ~ Predictor))
+
+level_order <- c("Min Nitrate + Nitrite", "Mean Nitrate + Nitrite", 
+                              "Max Nitrate + Nitrite", "Nitrate + Nitrite Range",
+                              "Min pH", "Mean pH", "Max pH", "pH Range",
+                              "Min Salinity", "Mean Salinity", "Max Salinity", "Salinity Range",
+                              "Min Phosphate", "Mean Phosphate", "Max Phosphate", "Phosphate Range",
+                              "Min Temperature", "Mean Temperature", "Max Temperature", "Temperature Range")
+
+colors <- c("#3474eb", "black")
+
+coeff_plot <- ggplot(data = coeffs_combined,
+                mapping = aes(x = estimate,
+                              y = factor(Predictor2, level = rev(level_order)), alpha = alpha, color = best_fit)) +
+  theme_classic() +
+  geom_vline(xintercept = 0, lty = 2) +
+  geom_point() +
+  geom_errorbar(mapping = aes(xmax = high, xmin= low), width=0.1) +
+  theme(legend.position = "none") +
+  labs(y = "Scaled predictor measurements", x = "Coefficient") +
+    theme(axis.text = element_text(size = 8),
+        legend.text = element_text(size = 12),
+        legend.title = element_text(size = 12),
+        strip.text = element_text(size = 12),
+        axis.title.x = element_markdown(size = 10),
+        axis.title.y = element_markdown(size = 10)) +
+  facet_wrap(~Response_measurement, scales = "free_x", ncol = 4) +
+  scale_color_manual(values = colors)
+coeff_plot
+```
+

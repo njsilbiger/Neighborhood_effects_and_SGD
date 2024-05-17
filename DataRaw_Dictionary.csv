@@ -1,0 +1,33 @@
+Folder 1,Folder 2,Folder 3,Folder 4,File Name,Descr,Script Cleaned In
+Coral,Chlorophyll_Content,Spec_results,,plate_run1_2022_03_27_stats630,Spectrophotometry results run 1 630 wavelength,chlorophyll_content_calculation
+Coral,Chlorophyll_Content,Spec_results,,plate_run1_2022_03_27_stats663,Spectrophotometry results run 1 663 wavelength,chlorophyll_content_calculation
+Coral,Chlorophyll_Content,Spec_results,,plate_run1_2022_03_27_stats750,Spectrophotometry results run 1 750 wavelength,chlorophyll_content_calculation
+Coral,Chlorophyll_Content,Spec_results,,plate_run2_2022_03_27_stats630,Spectrophotometry results run 2 630 wavelength,chlorophyll_content_calculation
+Coral,Chlorophyll_Content,Spec_results,,plate_run2_2022_03_27_stats663,Spectrophotometry results run 2 663 wavelength,chlorophyll_content_calculation
+Coral,Chlorophyll_Content,Spec_results,,plate_run2_2022_03_27_stats750,Spectrophotometry results run 2 750 wavelength,chlorophyll_content_calculation
+Coral,Chlorophyll_Content,Spec_results,,plate_run3_2022_03_27_stats630,Spectrophotometry results run 3 630 wavelength,chlorophyll_content_calculation
+Coral,Chlorophyll_Content,Spec_results,,plate_run3_2022_03_27_stats663,Spectrophotometry results run 3 663 wavelength,chlorophyll_content_calculation
+Coral,Chlorophyll_Content,Spec_results,,plate_run3_2022_03_27_stats750,Spectrophotometry results run 3 750 wavelength,chlorophyll_content_calculation
+Coral,Chlorophyll_Content,,,spec_plate_maps_2022_03_27,Map of which fragment sample and replicate is in each well ,chlorophyll_content_calculation
+Coral,Endosymbiont_Density,,,kerlin_sym_plateII_results_06242022,First flow cytometry endosymbiont density from Hawaii,chlorophyll_content_calculation
+Coral,Endosymbiont_Density,,,kerlin_sym_plateII_results_06292022,Second flow cytometry from Hawaii for samples that had values that were not in expected range,endosymbiont_density_calculation
+Coral,Metabolism,PI_curve,Metadata,pi_metadata,Metadata for the PI curve samples,PI_curve
+Coral,Metabolism,PI_curve,Metadata,picurve_quantumflux,The quantum flux average measurements for PI curve trials,PI_curve
+Coral,Metabolism,PI_curve,Metadata,picurve_volume,The volume of water in PI curve chambers,PI_curve
+Coral,Metabolism,PI_curve,Metadata,sample_sa_volume,The surface area and volume for PI curve samples,PI_curve
+Coral,Metabolism,PI_curve,RawO2Files,Multiple files,Raw data from the PI curve respirometry trials,PI_curve
+Coral,Metabolism,PR_final,Metadata,PR_metadata_combined_2022,Metadata for the post-deployment respirometry trials,CalculatePR_final
+Coral,Metabolism,PR_final,RawO2Files,Multiple files,Raw data from the post-deployment respirometry trials,CalculatePR_final
+Coral,Metabolism,PR_initial,Metadata,PR_initial_metadata_combined_2022,Metadata for the pre-deployment respirometry trials,CalculatePR_initial
+Coral,Metabolism,PR_initial,RawO2Files,Multiple files,Raw data for the pre-deployment respirometry trials,CalculatePR_initial
+Coral,Other_Coral_Measurements,Surface_Area,,surface_area_2022_03_20,Weight measurements of wax dipped coral skeletons,surface_area_measurements
+Coral,Other_Coral_Measurements,Surface_Area,,surface_area_jamie_calcurve_2022_03_20_use,Calibration curve for Person #1 dipping coral skeletons,surface_area_measurements
+Coral,Other_Coral_Measurements,Surface_Area,,surface_area_sabrina_calcurve_2022_03_20_use,Calibration curve for Person #2 dipping coral skeletons,surface_area_measurements
+Coral,Other_Coral_Measurements,,,volume_blastate,Volume (mL) of blastate from airbrushing corals,
+Site,,,,donor_colony_assignment,Donor colonies randomly assigned to plates,
+Site,,,,plate_collection_notes,Information on any missing fragments at end of experiment,
+Site,,,,Sandwich_Locations,GPS locations of plates,
+Site,Biogeochemistry,,,Turb_NC,Nitrogen concentration of turbinaria samples near plates,turb_nutrients
+Site,Biogeochemistry,CT_Loggers,CT_post08112021,Multiple files,CT measurements from plate locations after 8/11/2021,ct_temperature
+Site,Biogeochemistry,CT_Loggers,,Full_CT_08112021,CT measurements from plate locations before 8/11/2021,ct_temperature
+Site,Biogeochemistry,CT_Loggers,,CTLoggerIDMetaData_Plates,Metadata for which CT loggers are at which plates,ct_temperature

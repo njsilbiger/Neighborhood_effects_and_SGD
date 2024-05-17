@@ -1,0 +1,16 @@
+Folder 1,Folder 2,File Name,Descr,Cleaned from Script,Used in Script
+Coral,Endosymbiont_Physiology,chlorophyll_content_sanorm,Chlorophyll content,chlorophyll_content_calculation,biogeochem_PR
+Coral,Endosymbiont_Physiology,endosymbiont_density,Endosymbiont density,endosymbiont_density_calculation,biogeochem_PR
+Coral,Metabolism,PR_final_normalized_2022_06_28,Final photosynthesis and respiration,CalculatePR_final,PR_analysis_SA
+Coral,Metabolism,PR_initial_normalized_2022_06_28,Initial photosynthesis and respiration,CalculatePR_initial,PR_analysis_SA
+Coral,Metabolism,PR_wider_2022_06_28,Combined photosynthesis and respiration,,biogeochem_PR
+Coral,,coral_surface_area,Surface area,surface_area_measurements,chlorophyll_content_calculation; endosymbiont_density_calculation
+Coral,,data_wide_2022_10_25,Coral physiological response + biogeochemical measurements,biogeochem_PR,full_dfs
+Coral,,coral_response,Coral physiological responses (long),full_dfs,
+Site,,CT_temp,CT measurements,ct_temperature,
+Site,,CT_temp_summ,Summary of CT measurements,ct_temperature,biogeochem_PR
+Site,,turb_nutrients,Turbinaria sample measurements,,biogeochem_PR
+Site,,bgc_stats_2022_10_25,Raw values of biogeochemical measurement summaries,biogeochem_PR,full_dfs
+Site,,bgc_stats_scaled_2022_10_25,Scaled values of biogeochemical measurement summaries,biogeochem_PR,full_dfs
+Site,,site_biogeochemistry_qc,Raw data from Silibger repo of biogeochemical sampling,,full_dfs
+Site,,site_biogeochemistry_summstats,Summary data of biogeochemical measurements,full_dfs,

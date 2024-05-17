@@ -1,0 +1,8 @@
+Fragment_type,FragmentID,Row,Column,Volume(?L):,sym_FSC Events/?L(V),sym_SSC Events/?L(V),sym_FSC Events,sym_SSC Events,Notes
+ST_POST,16c,A,1,150,13.78,12.35,2068,1853,10X dilution
+ST_POST,16s,A,2,150.1,5.72,5.13,858,770,10X dilution
+ST_POST,18s,A,3,150.1,1.53,1.18,230,177,10X dilution
+ST_POST,20m,A,4,150.1,3.28,2.86,492,429,10X dilution
+ST_POST,8c,A,5,150.5,2.27,1.76,342,265,10X dilution
+ST_PRE,V,A,6,150,5.84,4.53,876,679,10X dilution
+ST_PRE,B,A,7,150,7.45,6.95,1118,1043,10X dilution

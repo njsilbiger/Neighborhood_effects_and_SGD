@@ -1,0 +1,209 @@
+Type,File Name,Variable,Descr
+Data_Raw,plate_run1_2022_03_27_stats630,Well_ID,ID of the well the measurement is taken from
+,plate_run1_2022_03_27_stats630,a_630,Measurement at wavelength 630
+,plate_run1_2022_03_27_stats663,Well_ID,ID of the well the measurement is taken from
+,plate_run1_2022_03_27_stats663,a_663,Measurement at wavelength 663
+,plate_run1_2022_03_27_stats750,Well_ID,ID of the well the measurement is taken from
+,plate_run1_2022_03_27_stats750,a_750,Measurement at wavelength 750
+,plate_run2_2022_03_27_stats630,Well_ID,ID of the well the measurement is taken from
+,plate_run2_2022_03_27_stats630,a_630,Measurement at wavelength 630
+,plate_run2_2022_03_27_stats663,Well_ID,ID of the well the measurement is taken from
+,plate_run2_2022_03_27_stats663,a_663,Measurement at wavelength 663
+,plate_run2_2022_03_27_stats750,Well_ID,ID of the well the measurement is taken from
+,plate_run2_2022_03_27_stats750,a_750,Measurement at wavelength 750
+,plate_run3_2022_03_27_stats630,Well_ID,ID of the well the measurement is taken from
+,plate_run3_2022_03_27_stats630,a_630,Measurement at wavelength 630
+,plate_run3_2022_03_27_stats663,Well_ID,ID of the well the measurement is taken from
+,plate_run3_2022_03_27_stats663,a_663,Measurement at wavelength 663
+,plate_run3_2022_03_27_stats750,Well_ID,ID of the well the measurement is taken from
+,plate_run3_2022_03_27_stats750,a_750,Measurement at wavelength 750
+,spec_plate_maps_2022_03_27,Run,"Three runs were made, this labels 1-3 for the run number"
+,spec_plate_maps_2022_03_27,Well_ID,The ID of the well the sample is in
+,spec_plate_maps_2022_03_27,Fragment_type,"The type of fragment (pre-deployment, post-deployment, blank)"
+,spec_plate_maps_2022_03_27,Fragment_ID,The ID of the coral fragment
+,spec_plate_maps_2022_03_27,Replicate_ID,Each fragment sample has 3 replicates- the replicate number 1-3
+,kerlin_sym_plateII_results_06242022,Fragment_type,The type of fragment (pre or post-deployment)
+,kerlin_sym_plateII_results_06242022,FragmentID,ID of coral fragment
+,kerlin_sym_plateII_results_06242022,Row,Row of sample
+,kerlin_sym_plateII_results_06242022,Column,Column of sample
+,kerlin_sym_plateII_results_06242022,Volume,Volume of sample
+,kerlin_sym_plateII_results_06242022,sym_FSC Events/L,FSC Events per L
+,kerlin_sym_plateII_results_06242022,sym_SSC Events/L,SSC Events per L
+,kerlin_sym_plateII_results_06242022,sym_FSC Events,FSC Events
+,kerlin_sym_plateII_results_06242022,sym_SSC Events,SSC Events
+,kerlin_sym_plateII_results_06292022,Fragment_type,The type of fragment (pre or post-deployment)
+,kerlin_sym_plateII_results_06292022,FragmentID,ID of coral fragment
+,kerlin_sym_plateII_results_06292022,Row,Row of sample
+,kerlin_sym_plateII_results_06292022,Column,Column of sample
+,kerlin_sym_plateII_results_06292022,Volume,Volume of sample
+,kerlin_sym_plateII_results_06292022,sym_FSC Events/L,FSC Events per L
+,kerlin_sym_plateII_results_06292022,sym_SSC Events/L,SSC Events per L
+,kerlin_sym_plateII_results_06292022,sym_FSC Events,FSC Events
+,kerlin_sym_plateII_results_06292022,sym_SSC Events,SSC Events
+,pi_metadata,fragment.ID,Fragment ID of the sample- donor colony ID or BLANK
+,pi_metadata,chamber.channel,The respirometry chamber (1-10) the sample is in 
+,pi_metadata,run,Run ID as indicated by the relative light level for the run
+,pi_metadata,temp.Cat,Temperature during run
+,pi_metadata,start.time,Start time of the respirometry trial
+,pi_metadata,stop.time,Stop time of the respirometry trial
+,pi_metadata,light_dark,All light trials in this scenario because measuring photosynthesis only
+,picurve_quantumflux,Trial,Trial ID 1-8
+,picurve_quantumflux,Quantum_flux,Quantum flux taken from several locations around respirometry stand
+,picurve_quantumflux,Avg_quantum_flux,The average quantum flux in the respirometry chambers for each trial
+,picurve_volume,Donor_colony,Donor colony ID of coral
+,picurve_volume,Chamber,Respirometry chamber the coral is located in
+,picurve_volume,Volume_mL,Volume of water in the chamber
+,sample_sa_volume,fragment.ID,Fragment ID of the sample- donor colony ID or BLANK
+,sample_sa_volume,surf.area.cm2,Surface area of the coral fragment
+,sample_sa_volume,volume,Volume of water in the chamber
+,PR_metadata_combined_2022; PR_initial_metadata_combined_2022,block,ID for respirometry trial group
+,PR_metadata_combined_2022; PR_initial_metadata_combined_2022,PlateID,ID of the plate the coral fragment was assigned to
+,PR_metadata_combined_2022; PR_initial_metadata_combined_2022,CowTagID,ID of the plate the coral fragment was assigned to
+,PR_metadata_combined_2022; PR_initial_metadata_combined_2022,Date,Date of respirometry trial
+,PR_metadata_combined_2022; PR_initial_metadata_combined_2022,FileName,Raw O2 File name
+,PR_metadata_combined_2022; PR_initial_metadata_combined_2022,Top_Bottom,Whether the plate was top or bottom of the sandwich (all top in this exp)
+,PR_metadata_combined_2022; PR_initial_metadata_combined_2022,Light_Dark,Light or dark O2 measurements
+,PR_metadata_combined_2022; PR_initial_metadata_combined_2022,Site,Varari
+,PR_metadata_combined_2022; PR_initial_metadata_combined_2022,chamber.channel,The respirometry chamber (1-10) the sample is in 
+,PR_metadata_combined_2022; PR_initial_metadata_combined_2022,FragmentID,The ID of the coral fragment
+,PR_metadata_combined_2022; PR_initial_metadata_combined_2022,BLANK,BLANK Y/N for
+,PR_metadata_combined_2022; PR_initial_metadata_combined_2022,notes,Notes for the respirometry trial
+,PR_metadata_combined_2022; PR_initial_metadata_combined_2022,start.time,Trial start time
+,PR_metadata_combined_2022; PR_initial_metadata_combined_2022,stop.time,Trial stop time
+,PR_metadata_combined_2022; PR_initial_metadata_combined_2022,volume,Volume of water in the respirometry chamber
+,PR_metadata_combined_2022; PR_initial_metadata_combined_2022,totalSA_cm2,Total surface area
+,surface_area_2022_03_20,Fragment_type,"Fragment type (pre-deployment physio or PR, PR curve, post-deployment)"
+,surface_area_2022_03_20,FragmentID,ID of coral fragment
+,surface_area_2022_03_20,Person_measuring,Person who measured the coral fragment (Sabrina or Jamie)
+,surface_area_2022_03_20,Weight_before_g,Weight of the coral fragment before wax
+,surface_area_2022_03_20,Weight_after_g,Weight of the coral fragment after wax
+,surface_area_jamie_calcurve_2022_03_20_use;surface_area_sabrina_calcurve_2022_03_20_use,dowel diameter,Diameter of wooden dowel used for calibration curve
+,surface_area_jamie_calcurve_2022_03_20_use;surface_area_sabrina_calcurve_2022_03_20_use,dowel height,Height of wooden dowel used for calibration curve
+,surface_area_jamie_calcurve_2022_03_20_use;surface_area_sabrina_calcurve_2022_03_20_use,surface area,Calculated surface area of wooden dowel 
+,surface_area_jamie_calcurve_2022_03_20_use;surface_area_sabrina_calcurve_2022_03_20_use,weight no wax,Weight of wooden dowel before wax
+,surface_area_jamie_calcurve_2022_03_20_use;surface_area_sabrina_calcurve_2022_03_20_use,weight with wax,Weight of wooden dowel after wax
+,surface_area_jamie_calcurve_2022_03_20_use;surface_area_sabrina_calcurve_2022_03_20_use,weight of wax,Weight of the wax
+,surface_area_jamie_calcurve_2022_03_20_use;surface_area_sabrina_calcurve_2022_03_20_use,dowel ID,Dowel ID
+,volume_blastate,Fragment_type,"Fragment type (pre-deployment physio or PR, PR curve, post-deployment)"
+,volume_blastate,Fragment_ID,ID of coral fragment
+,volume_blastate,Blastate_volume_mL,Volume of filtered saltwater and coral tissue blastate of fragment
+,volume_blastate,Number_tubes,The total number of blastate tubes for each coral (used to track the tubes)
+,volume_blastate,Notes,Notes for blastate
+,CT_xxx_Varari,date,Date  and time of CT log measurement
+,CT_xxx_Varari,temp,Temperature value from CT logger
+,CTLoggerIDMetaData_Plates,Site,Site CT Logger is located (Varari only used in this study)
+,CTLoggerIDMetaData_Plates,CowTagID,Plate that the CT logger was at
+,CTLoggerIDMetaData_Plates,Logger ID,ID for the CT logger
+,CTLoggerIDMetaData_Plates,Date_launched,Date the CT logger was launched
+,CTLoggerIDMetaData_Plates,Tiime_launched,Time the CT logger was launched
+,CTLoggerIDMetaData_Plates,Date_retrieved,Date the CT logger was retrieved
+,CTLoggerIDMetaData_Plates,Time_retrieved,Time the CT logger was retrieved
+,CTLoggerIDMetaData_Plates,Notes,CT Logger notes
+,Full_CT_08112021,date,Date and time of CT log measurement
+,Full_CT_08112021,LoggerID,ID for the CT logger
+,Full_CT_08112021,FullLoggerID,Full ID for the CT logger
+,Full_CT_08112021,TempInSitu,Temperature value from CT logger
+,Full_CT_08112021,E_Cond,Conductivity value from CT logger
+,Full_CT_08112021,Salinity_psu,Salinity value from CT logger
+,Turb_NC,CowTagID,Plate that the Turbinaria was collected from
+,Turb_NC,Sample_Weight,Weight of the Turbinaria sample
+,Turb_NC,N_ug,Nitrogen content in Turbinaria sample
+,Turb_NC,del15N,Del15N in Turbinaria sample
+,Turb_NC,C_ug,Carbon content in Turbinaria sample
+,Turb_NC,del13C,Del13C in Turbinaria sample
+,Turb_NC,N_percent,Percent nitrogen in Turbinaria sample
+,Turb_NC,C_percent,Percent carbon in Turbinaria sample
+,Turb_NC,C_N,Carbon to nitrogen ratio in Turbinaria sample
+,donor_colony_assignment,Donor_Colony,Donor colony ID of coral
+,donor_colony_assignment,PlateID,Plate that the coral was randomly assigned to
+,donor_colony_assignment,CowTagID,Plate that the coral was randomly assigned to
+,plate_collection_notes,Plate_ID,Plate ID
+,plate_collection_notes,Treatment,"Treatment (m, c, h, s)"
+,plate_collection_notes,Missing_central,The number of center corals missing (binary)
+,plate_collection_notes,Missing_comp,The number of neighbor corals missing (0-4)
+,plate_collection_notes,Notes,Notes on missing fragments
+,plate_collection_notes,Top_Plate_ID,"Of the sandwiched plates for both projects, ID for the top plates (this project)"
+,plate_collection_notes,Bottom_Plate_ID,ID for the bottom plates (another project)
+,plate_collection_notes,Jamie_Plate_ID,ID for the plates for this project
+,plate_collection_notes,GPS_ID,Name of the plate location in the GPS
+,plate_collection_notes,Location,Site (Varari was only used in this experiment)
+,plate_collection_notes,lat,Plate latitude
+,plate_collection_notes,lon,Plate longitude
+,plate_collection_notes,CreationTime,Creation Time
+,plate_collection_notes,CowTagID,Associated cow tag to the plate
+Data,chlorophyll_content_sanorm,CowTagID,ID of the plate the coral fragment was assigned to
+,chlorophyll_content_sanorm,FragmentID,Fragment ID of the coral
+,chlorophyll_content_sanorm,CC_final,Post-deployment chla content (not normalized)
+,chlorophyll_content_sanorm,CC_cm2_final,Post-deployment chla content normalized to surface area (cm2)
+,chlorophyll_content_sanorm,CC_initial,Pre-deployment chla content (not normalized)
+,chlorophyll_content_sanorm,CC_cm2_initial,Pre-deployment chla content normalized to surface area (cm2)
+,chlorophyll_content_sanorm,Donor_Colony,The donor colony that the fragment came from
+,endosymbiont_density,CowTagID,ID of the plate the coral fragment was assigned to
+,endosymbiont_density,FragmentID,Fragment ID of the coral
+,endosymbiont_density,ED_final,Post-deployment endosymbiont density
+,endosymbiont_density,ED_initial,Pre-deployment endosymbiont density
+,PR_final_normalized_2022_06_28/PR_initial_normalized_2022_06_28,PlateID,ID of the plate the coral fragment was assigned to
+,PR_final_normalized_2022_06_28/PR_initial_normalized_2022_06_28,CowTagID,ID of the plate the coral fragment was assigned to
+,PR_final_normalized_2022_06_28/PR_initial_normalized_2022_06_28,FragmentID,Fragment ID of the coral
+,PR_final_normalized_2022_06_28/PR_initial_normalized_2022_06_28,Top_Bottom,Whether the plate was top or bottom of the sandwich (all top in this exp)
+,PR_final_normalized_2022_06_28/PR_initial_normalized_2022_06_28,Site,Site of the plate (all Varari in this exp)
+,PR_final_normalized_2022_06_28/PR_initial_normalized_2022_06_28,totalSA_cm2,Coral fragment total surface area (cm2)
+,PR_final_normalized_2022_06_28/PR_initial_normalized_2022_06_28,Respiration,Respiration of the coral fragment
+,PR_final_normalized_2022_06_28/PR_initial_normalized_2022_06_28,NetPhoto,Net photosynthesis of the coral fragment 
+,PR_final_normalized_2022_06_28/PR_initial_normalized_2022_06_28,GrossPhoto,Gross photosynthesis of the coral fragment
+,PR_wider_2022_06_28,PlateID,ID of the plate
+,PR_wider_2022_06_28,CowTagID,ID of the plate
+,PR_wider_2022_06_28,SurfaceAreaInitial,Initial surface area of the coral fragment
+,PR_wider_2022_06_28,NetPhotoInitial,Initial net photosynthesis of the coral donor colony
+,PR_wider_2022_06_28,GrossPhotoInitial,Initial gross photosynthesis of the coral donor colony
+,PR_wider_2022_06_28,RespirationInitial,Initial respiration of the coral donor colony
+,PR_wider_2022_06_28,FragmentID,ID for the coral fragment
+,PR_wider_2022_06_28,SurfaceAreaFinal,Final surface area of the coral fragment
+,PR_wider_2022_06_28,NetPhotoFinal,Final net photosynthesis of the coral fragment
+,PR_wider_2022_06_28,GrossPhotoFinal,Final gross photosynthesis of the coral fragment
+,PR_wider_2022_06_28,RespirationFinal,Final respiration of the coral fragment
+,PR_wider_2022_06_28,Treatment,"Treatment (m, c, h, s)"
+,PR_wider_2022_06_28,pc_change_GP,Percent change in gross photosynthesis
+,PR_wider_2022_06_28,pc_change_NP,Percent change in net photosynthesis
+,PR_wider_2022_06_28,pc_change_R,Percent change in respiration
+,coral_response,CowTagID,ID of the plate
+,coral_response,FragmentID,ID of the coral fragment
+,coral_response,Treatment,"Treatment (no neighbor (m), Dead skeletal (s), Conspecific (c), Heterospecific (h))"
+,coral_response,Response_measurement,"Response measurement- chlorophyll content, endosymbiont density, net photosynthesis, gross photosynthesis, or respiration"
+,coral_response,Initial,Initial value of the response measurement pre-deployment
+,coral_response,Final,Final value of the response measurement post-deployment
+,coral_surface_area,CowTagID,ID of the plate
+,coral_surface_area,Fragment_type,"Fragment type (pre-deployment physio or PR, PR curve, post-deployment)"
+,coral_surface_area,FragmentID,ID of the fragment
+,coral_surface_area,totalSA_cm2,Total surface area
+,bgc_stats_2022_10_25,CowTagID,ID of the plate
+,bgc_stats_2022_10_25,Predictor_measurement,Biogeochemical measurement
+,bgc_stats_2022_10_25,Predictor_value,Biogeochemical value
+,bgc_stats_scaled_2022_10_25,Predictor_value,Scaled biogeochemical value
+,CT_temp_summ,CowTagID,ID of the plate
+,CT_temp_summ,minTemp,Minimum temperature
+,CT_temp_summ,maxTemp,Maximum temperature
+,CT_temp_summ,meanTemp,Mean temperature
+,CT_temp_summ,rangeTemp,Range of temperature
+,CT_temp_summ,cvTemp,Covariance of temperature
+,site_biogeochemistry_qc,CowTagID,ID of the plate
+,site_biogeochemistry_qc,Location,Site (Varari)
+,site_biogeochemistry_qc,lat,Site latitude
+,site_biogeochemistry_qc,lon,Site longitude
+,site_biogeochemistry_qc,Date,Date of measurement
+,site_biogeochemistry_qc,Time,Time of measurement
+,site_biogeochemistry_qc,DateTime,Date and time of measurement
+,site_biogeochemistry_qc,Tide,Tide (high or low)
+,site_biogeochemistry_qc,Day_Night,Day or night
+,site_biogeochemistry_qc,Salinity,Salinity of sample
+,site_biogeochemistry_qc,Temperature,Temperature of sample
+,site_biogeochemistry_qc,TA,Total alkalinity of sample
+,site_biogeochemistry_qc,pH,pH of sample
+,site_biogeochemistry_qc,Phosphate_umolL,Phosphate concentration of sample
+,site_biogeochemistry_qc,Silicate_umolL,Silicate concentration of sample
+,site_biogeochemistry_qc,NN_umolL,Nitrate + nitrite concentration of sample
+,site_biogeochemistry_qc,Ammonia_umolL,Ammonia concentration of sample
+,site_biogeochemistry_summstats,CowTagID,ID of the plate
+,site_biogeochemistry_summstats,Predictor_measurement,"min, means, max, and range of the measured biogeochemical variables"
+,site_biogeochemistry_summstats,Predictor_value,Raw value of biogeochemical measurement
+,site_biogeochemistry_summstats,Predictor_scaled,Scaled value of biogeochemical measurement
