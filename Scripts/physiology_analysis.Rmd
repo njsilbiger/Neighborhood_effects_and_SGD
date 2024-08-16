@@ -181,10 +181,11 @@ biogeochem_table_overall <- biogeochem_table %>%
 
 
 biogeochem_table_overall 
+```
 
 
 # make each data frame and plot separately so can have different range scales
-
+```{r}
 biogeochem_nn <- biogeochem_table %>%
   pivot_longer(cols = Minimum:Mean,
                names_to = "Type",
@@ -2222,3 +2223,47 @@ coeff_plot <- ggplot(data = coeffs_combined,
 coeff_plot
 ```
 
+# Calculate some summary values for interpretation
+
+```{r}
+# Endosymbiont density across min N gradient
+data_wide %>%
+  filter(Response_measurement == "ED",
+         Treatment == "No_neighbor",
+         min_NN_umolL == min(min_NN_umolL, na.rm = TRUE)|min_NN_umolL == max(min_NN_umolL, na.rm = TRUE)) %>%
+  select(Treatment, Final,min_NN_umolL )
+
+
+# Endosymbiont density across pH Range gradient
+data_wide %>%
+  filter(Response_measurement == "CCcm2",
+         Treatment == "No_neighbor") %>%
+  select(Treatment, Final,range_pH ) %>%
+    filter(range_pH == min(range_pH, na.rm = TRUE)|range_pH == max(range_pH, na.rm = TRUE)
+         ) 
+
+# GP aross pH range
+data_wide %>%
+  filter(Response_measurement == "GP",
+         Treatment == "No_neighbor") %>%
+  select(Treatment, Final,range_pH ) %>%
+    filter(range_pH == min(range_pH, na.rm = TRUE)|range_pH == max(range_pH, na.rm = TRUE)
+         ) 
+
+# R aross pH range
+data_wide %>%
+  filter(Response_measurement == "R",
+         Treatment == "No_neighbor") %>%
+  select(Treatment, Final,range_pH ) %>%
+    filter(range_pH == min(range_pH, na.rm = TRUE)|range_pH == max(range_pH, na.rm = TRUE)
+         ) 
+
+
+data_wide %>%
+  group_by(Treatment, Response_measurement) %>%
+  summarise(mean_value = mean(Final, na.rm = TRUE)) %>%
+  pivot_wider(names_from = Response_measurement,
+              values_from = mean_value)
+
+  
+```
