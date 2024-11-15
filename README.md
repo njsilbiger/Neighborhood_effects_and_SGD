@@ -1,7 +1,8 @@
-Conspecific interactions between corals mediate the effect of submarine groundwater discharge on coral physiology
+# Title: Conspecific interactions between corals mediate the effect of submarine groundwater discharge on coral physiology
 
+This repository includes data for the above manuscript
 
-### Jamie R. Kerlin<sup>1</sup><sup>&#9768;</sup>, Danielle M. Barnas<sup>2</sup>, Nyssa J. Silbiger<sup>3*</sup><sup>&#9768;</sup>
+**Authors:** Jamie R. Kerlin<sup>1</sup><sup>&#9768;</sup>, Danielle M. Barnas<sup>2</sup>, Nyssa J. Silbiger<sup>3*</sup><sup>&#9768;</sup>
 1. California State University Northridge, Department of Biology, Northridge, CA, United States  
 2. University of Hawai'i at Mānoa, Hawai'i Institute of Marine Biology, Kāne'ohe, HI, United States  
 3. University of Hawai'i at Mānoa, Uehiro Center for the Advancement of Oceanography, Department of Oceanography, Honolulu, HI, United States  
@@ -9,9 +10,9 @@ Conspecific interactions between corals mediate the effect of submarine groundwa
 \* corresponding author: email: njsilbiger@hawaii.edu  
 <sup>&#9768;</sup> co-lead authorship
 
-#### Keywords: Coral reefs, Land-based inputs, Species-interactions, Mo'orea, Conspecific, Submarine groundwater discharge, Biotic-abiotic interactions
+**Keywords:** Coral reefs, Land-based inputs, Species-interactions, Mo'orea, Conspecific, Submarine groundwater discharge, Biotic-abiotic interactions
 
-#### Abstract
+**Abstract**
 Land-based inputs, such as runoff, rivers, and submarine groundwater, can alter
 biological processes on coral reefs. While the abiotic factors associated with land-
 based inputs have strong effects on coral, corals are also affected by biotic
@@ -34,8 +35,9 @@ physical environment around the coral. Our study underscores the importance of
 considering biotic interactions when predicting the physiologic and demographic
 responses of corals to the environment.
 
+**Contents:** There are four folders and a README.md file.  
 
-Processed data can be found [here](Data/).  
-  Raw data can be found [here](Data_Raw/).  
-Scripts for data processing, analysis, and figures can be found [here](Scripts/).  
-Output figures and tables can be found [here](/Output).  
+[**Data**](Data/): All processed data for site conditions, coral metabolism, and endosymbiont metrics.  
+[**Raw Data**](Data_Raw/): These are the original data files that were used in the code.  
+[**Code**](Scripts/): All the scripts for data processing, analysis, and figures used in the manuscript.  
+[**Output**](/Output): Plots exported from the analysis.  
