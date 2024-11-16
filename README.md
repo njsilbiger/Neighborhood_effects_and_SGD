@@ -7,7 +7,7 @@ This repository includes data for the above manuscript
 2. University of Hawai'i at Mānoa, Hawai'i Institute of Marine Biology, Kāne'ohe, HI, United States  
 3. University of Hawai'i at Mānoa, Uehiro Center for the Advancement of Oceanography, Department of Oceanography, Honolulu, HI, United States  
 
-\* corresponding author: email: njsilbiger@hawaii.edu  
+\* corresponding author: email: silbiger@hawaii.edu  
 <sup>&#9768;</sup> co-lead authorship
 
 **Keywords:** Coral reefs, Land-based inputs, Species-interactions, Mo'orea, Conspecific, Submarine groundwater discharge, Biotic-abiotic interactions
