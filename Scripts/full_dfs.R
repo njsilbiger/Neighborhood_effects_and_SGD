@@ -1,5 +1,5 @@
 ### Creating two main data frames for analysis Markdown file #################
-# one for coral respones, the other for biogeochem 
+# one for coral responses, the other for biogeochemistry
 ##############################################################################
 
  
@@ -15,7 +15,7 @@ data <- read_csv(here("Data",
                       "Coral",
                              "data_wide_2022_10_25.csv"))
 
-### then, biogeochem data ####
+### then, biogeochemical data ####
 bgc <- read_csv(here("Data",
                      "Site",
                           "bgc_stats_2022_10_25.csv")) %>%
