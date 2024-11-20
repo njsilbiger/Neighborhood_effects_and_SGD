@@ -1,6 +1,5 @@
 ---
-title: "Species interactions mediate the effects of submarine groundwater discharge
-on coral physiology"
+title: "Conspecific interactions between corals mediate the effect of submarine groundwater discharge on coral physiology"
 author: "Jamie Kerlin"
 date: '2022-05-31'
 output: 
@@ -26,7 +25,7 @@ knitr::opts_chunk$set(echo = TRUE, #we want to show our script, so keeping this 
 
 
 ## Purpose of this RMarkdown
-This RMarkdown is the analysis for "Ecological effects of submarine groundwater discharge and neighborhood interactions on common coral species, Porites rus", by J.R. Kerlin, D.M. Barnas, and N.J. Silbiger.
+This RMarkdown is the analysis for "Conspecific interactions between corals mediate the effect of submarine groundwater discharge on coral physiology", by J.R. Kerlin, D.M. Barnas, and N.J. Silbiger.
 
 ## Load libraries
 ```{r}
@@ -54,7 +53,7 @@ library(MuMIn)
 ```
 
 ## Notes on this analysis
-I have growth data and metabolism data ready from my experiment and water biogeochemistry data.
+We have growth data and metabolism data ready from my experiment and water biogeochemistry data.
 80 fragments were deployed.
 72 fragments were recovered.
 59 fragments did not have any competitors missing- these were used in the analysis.
@@ -64,12 +63,12 @@ There are 13 dead skeletal competition treatments left.
 There are 16 conspecific treatments left.  
 There are 15 heterospecific treatments left.
 
-In this analysis, I am looking at 2 metabolism rates and 2 endosymbiont physiology values:  
+In this analysis, we are looking at 2 metabolism rates and 2 endosymbiont physiology values:  
 - gross photosynthesis & respiration  
 - endosymbiont density & chlorophyll a content  
 
-My experiment was deployed (8/3-8/17/2021).
-There seemed to be some outliers in the CT temp data, so I filtered out temps over 32C.
+This experiment was deployed (8/3-8/17/2021).
+There seemed to be some outliers in the CT temp data, so we filtered out temps over 32C.
 12S was somehow lost in the freezer, so no endosymbiont physio data for this fragment.
 
 ## Load data 
@@ -88,7 +87,7 @@ bgc <- read_csv(here("Data",
                      "Site",
                      "site_biogeochemistry_summstats.csv"))
 
-# Here is information on the plate collection where I look at which fragments were missing
+# Here is information on the plate collection where we look at which fragments were missing
 fragments <- read_csv(here("Data",
                            "Metadata",
                            "Coral",
@@ -110,7 +109,7 @@ colors <- c("#a45851", "#eba07e", "#b0cbe7", "#5d74a5")
 
 ## Data cleaning
 
-I'll clean up the data for which fragments were missing when I collected the plates.  
+We clean up the data for which fragments were missing when we collected the plates.  
 
 This is removing all plates that were missing their center fragments (8 plates) and 
 those that were missing any competitors (13 more plates).  
@@ -132,9 +131,9 @@ fragments1 <- fragments %>%
 
 ```
 
-I'll combine the coral response variable dataset with the SGD biogeochemistry dataset + the "fragments" df.
+We combine the coral response variable dataset with the SGD biogeochemistry dataset + the "fragments" df.
 We need one in long format and one in wide format for the following analyses.
-From this, I have a total of 59 fragments that are being analyzed, compared to the 72 fragments I would have analyzed if I did not remove the fragments that were missing competitors.
+From this, we have a total of 59 fragments that are being analyzed, compared to the 72 fragments we would have analyzed if we did not remove the fragments that were missing competitors.
 
 ```{r}
 data_long <- left_join(coral, bgc) %>%
@@ -321,7 +320,7 @@ ggplot(data_wide, mapping = aes(x = Response_measurement, y = Final)) +
 ```
 
 
-Next, I'll create separate dataframes for each response variable.
+Next, we create separate dataframes for each response variable.
 
 ```{r}
 # Dataframes with observations for all neighbor treatments
