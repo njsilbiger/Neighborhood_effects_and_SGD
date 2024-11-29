@@ -1622,7 +1622,7 @@ bptest(control_cc_m2)
 ## Combined plots 
 
 ### AIC plots
-```{r aic_patched, fig.height=6, fig.width = 7}
+```{r aic_patched, fig.height=6, fig.width = 7, dev="pdf"}
 gp_aic_patch <- gp_aic_plot_data %>%
 ggplot(mapping = aes(x = reorder(Predictor, -delAIC), y = delAIC)) +
   geom_col() +
@@ -1702,7 +1702,7 @@ plot_aic <- gridExtra::grid.arrange(result_aic,
 
 ### Control plots - only neighbor treatment
 
-```{r control1_patched, fig.height=6, fig.width = 7}
+```{r control1_patched, fig.height=6, fig.width = 7, dev = "pdf"}
 gp_plot_control1 <- ggplot(GP_plot_control, mapping = aes(x = range_pH, y = Final)) +
   geom_point(alpha = 0.7, size = 1) +
   geom_smooth(method = "lm", color = "black") +
@@ -1768,7 +1768,7 @@ plot_control1 <- gridExtra::grid.arrange(result_control1)
 
 ### Control plots- all observations overlaid (supplemental material)
 
-```{r control2_patched, fig.height=6, fig.width = 7}
+```{r control2_patched, fig.height=6, fig.width = 7, dev = "pdf"}
 gp_plot_control2 <- ggplot(GP_plot_control, mapping = aes(x = range_pH, y = Final)) +
   geom_point(GP_plot1, mapping = aes(x = range_pH, y = Final, color = Treatment), alpha = 0.7, size = 1.5) +
   geom_smooth(method = "lm", color = "#556385") +
@@ -1844,7 +1844,7 @@ plot_control2
 
 ### Treatment residual plots combined 
 
-```{r residual_patched, fig.height=6, fig.width = 7}
+```{r residual_patched, fig.height=6, fig.width = 7, dev = "pdf"}
 gp_plot_resid <- ggplot(tidy_gp1, mapping = aes(x = Treatment, y = estimate)) +
     geom_jitter(mapping = aes(x = Treatment, y = resid, color = Treatment), size =1.5,  alpha = 0.5, width = 0.1) +
       geom_point(size = 2.5) +
