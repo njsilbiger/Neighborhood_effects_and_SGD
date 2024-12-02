@@ -1,3 +1,4 @@
+[![DOI](https://zenodo.org/badge/802240864.svg)](https://doi.org/10.5281/zenodo.14262763)
 # Title: Conspecific interactions between corals mediate the effect of submarine groundwater discharge on coral physiology
 
 This repository includes data for the above manuscript
